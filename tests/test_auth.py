@@ -86,7 +86,7 @@ class TestAuth(unittest.TestCase):
             # 먼저 올바른 키로 시험 예약 1건 저장
             seed_payload = {
                 "id": "res-secret-test",
-                "reserved_at": format_kst(now_kst() + timedelta(hours=1)),
+                "reserved_at": format_kst((now_kst() + timedelta(hours=1)).replace(second=0, microsecond=0)),
                 "status": STATUS_SCHEDULED,
             }
             st_post, _, _ = self._request(
@@ -135,7 +135,7 @@ class TestAuth(unittest.TestCase):
             # 예약 1건 저장
             seed_payload = {
                 "id": "res-view-1",
-                "reserved_at": format_kst(now_kst() + timedelta(hours=2)),
+                "reserved_at": format_kst((now_kst() + timedelta(hours=2)).replace(second=0, microsecond=0)),
                 "status": STATUS_SCHEDULED,
             }
             self._request(

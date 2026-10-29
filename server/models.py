@@ -37,6 +37,7 @@ class Reservation:
         return {
             "id": self.id,
             "reserved_at": format_kst(self.reserved_at),
+            "scheduled_at": format_kst(self.reserved_at),
             "status": self.status,
             "allow_during_off_period": self.allow_during_off_period,
             "failure_reason": self.failure_reason,
@@ -47,9 +48,10 @@ class Reservation:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Reservation:
+        raw_at = data.get("scheduled_at") or data["reserved_at"]
         return cls(
             id=str(data.get("id") or uuid.uuid4().hex[:8]),
-            reserved_at=parse_kst(data["reserved_at"]),
+            reserved_at=parse_kst(raw_at),
             status=str(data.get("status", STATUS_SCHEDULED)),
             allow_during_off_period=bool(data.get("allow_during_off_period", False)),
             failure_reason=data.get("failure_reason"),

@@ -209,7 +209,7 @@
     {
       "id": "LB-012",
       "reqs": ["REQ-001"],
-      "status": "todo",
+      "status": "done",
       "priority": "핵심",
       "category": "1회성예약",
       "title": "1회성 예약 생성 API",
@@ -218,9 +218,9 @@
       "parent": null,
       "deps": ["LB-006", "LB-009"],
       "doc": null,
-      "done_at": null,
+      "done_at": "2026-10-29",
       "must": "분 단위 일시만 받는다. 모드·구역 선택 없음 (D-03).",
-      "memo": null
+      "memo": "[2026-10-29] 검증 완료: 미래 일시 1회성 예약 생성(201) 및 목록 '예정' 상태 조회, 과거/현재 일시 400 거부, 초/마이크로초 포함 시 400 거부, D-03 모드/구역 선택 요청 시 400 거부, 무인증 401 차단 검증. 36개 테스트 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인."
     },
     {
       "id": "LB-013",

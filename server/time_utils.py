@@ -29,3 +29,13 @@ def parse_kst(raw: str) -> datetime:
     if parsed.tzinfo is None:
         return parsed.replace(tzinfo=KST)
     return parsed.astimezone(KST)
+
+
+def is_minute_precision(dt: datetime) -> bool:
+    """초와 마이크로초가 0인지(분 단위 정밀도인지) 확인한다."""
+    return dt.second == 0 and dt.microsecond == 0
+
+
+def truncate_to_minute(dt: datetime) -> datetime:
+    """초와 마이크로초를 0으로 맞춘 KST datetime을 반환한다."""
+    return to_kst(dt).replace(second=0, microsecond=0)

@@ -17,8 +17,12 @@ from server.models import (
     AutoStopEvent,
     NotificationTarget,
     OffPeriod,
-    Reservation,
     WaterTracker,
+)
+from server.reservations import (
+    ReservationConflictError,
+    ReservationService,
+    ReservationValidationError,
 )
 from server.storage import Storage
 from server.time_utils import format_kst, now_kst
@@ -160,8 +164,7 @@ class MiniPCHandler(BaseHTTPRequestHandler):
         try:
             if path == "/api/reservations":
                 assert data is not None
-                res = Reservation.from_dict(data)
-                storage.save_reservation(res)
+                res = ReservationService(storage).create_reservation(data)
                 self._send_json(HTTPStatus.CREATED, res.to_dict())
                 return
 
@@ -192,6 +195,12 @@ class MiniPCHandler(BaseHTTPRequestHandler):
                 storage.save_notification_target(nt)
                 self._send_json(HTTPStatus.CREATED, nt.to_dict())
                 return
+        except ReservationValidationError as err:
+            self._send_error_json(HTTPStatus.BAD_REQUEST, str(err))
+            return
+        except ReservationConflictError as err:
+            self._send_error_json(HTTPStatus.CONFLICT, str(err))
+            return
         except (KeyError, ValueError) as err:
             self._send_error_json(HTTPStatus.BAD_REQUEST, f"Invalid model payload: {err}")
             return

@@ -99,7 +99,7 @@ class TestServer(unittest.TestCase):
             # 2. Reservation 시험 데이터 저장
             res_payload = {
                 "id": "res-test-1",
-                "reserved_at": format_kst(now_kst() + timedelta(hours=3)),
+                "reserved_at": format_kst((now_kst() + timedelta(hours=3)).replace(second=0, microsecond=0)),
                 "status": STATUS_SCHEDULED,
                 "allow_during_off_period": True,
             }

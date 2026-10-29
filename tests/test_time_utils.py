@@ -3,7 +3,15 @@ from __future__ import annotations
 import unittest
 from datetime import UTC, datetime
 
-from server.time_utils import KST, format_kst, now_kst, parse_kst, to_kst
+from server.time_utils import (
+    KST,
+    format_kst,
+    is_minute_precision,
+    now_kst,
+    parse_kst,
+    to_kst,
+    truncate_to_minute,
+)
 
 
 class TestTimeUtils(unittest.TestCase):
@@ -41,6 +49,20 @@ class TestTimeUtils(unittest.TestCase):
         parsed = parse_kst("2026-11-01T09:30:00")
         self.assertEqual(parsed.tzinfo, KST)
         self.assertEqual(parsed.hour, 9)
+
+    def test_minute_precision_helpers(self) -> None:
+        dt_minute = datetime(2026, 11, 1, 9, 30, 0, 0, tzinfo=KST)
+        dt_second = datetime(2026, 11, 1, 9, 30, 15, 0, tzinfo=KST)
+        dt_micro = datetime(2026, 11, 1, 9, 30, 0, 500, tzinfo=KST)
+
+        self.assertTrue(is_minute_precision(dt_minute))
+        self.assertFalse(is_minute_precision(dt_second))
+        self.assertFalse(is_minute_precision(dt_micro))
+
+        truncated = truncate_to_minute(dt_second)
+        self.assertTrue(is_minute_precision(truncated))
+        self.assertEqual(truncated, dt_minute)
+
 
 
 if __name__ == "__main__":

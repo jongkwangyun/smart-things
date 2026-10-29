@@ -113,7 +113,7 @@
     {
       "id": "LB-006",
       "reqs": ["REQ-026"],
-      "status": "todo",
+      "status": "done",
       "priority": "핵심",
       "category": "서버기반",
       "title": "미니PC 서버 골격과 영구 저장소",
@@ -122,9 +122,9 @@
       "parent": null,
       "deps": [],
       "doc": "SPEC.md#product-data-model",
-      "done_at": null,
+      "done_at": "2026-10-29",
       "must": "Reservation·OffPeriod·AutoStopEvent·WaterTracker·NotificationTarget을 담을 수 있어야 하고 모든 일시는 KST 기준으로 다룬다.",
-      "memo": null
+      "memo": "[2026-10-29] 검증 완료: /health 엔드포인트 응답 및 서버 재시작 후 5개 모델 데이터 영구 보존 단위/통합 테스트 14건 통과. ruff, mypy, compileall 통과. code_reviewer PASS 확인."
     },
     {
       "id": "LB-007",

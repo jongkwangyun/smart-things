@@ -7,6 +7,11 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+from server.auth import (
+    extract_secret_from_headers,
+    is_health_check_path,
+    verify_shared_secret,
+)
 from server.config import Config
 from server.models import (
     AutoStopEvent,
@@ -24,16 +29,33 @@ class MiniPCHandler(BaseHTTPRequestHandler):
 
     server: MiniPCServer
 
-    def _send_json(self, status: int, payload: Any) -> None:
+    def _send_json(self, status: int, payload: Any, headers: dict[str, str] | None = None) -> None:
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
+        if headers:
+            for k, v in headers.items():
+                self.send_header(k, v)
         self.end_headers()
         self.wfile.write(body)
 
-    def _send_error_json(self, status: int, message: str) -> None:
-        self._send_json(status, {"error": message, "status": status})
+    def _send_error_json(self, status: int, message: str, headers: dict[str, str] | None = None) -> None:
+        self._send_json(status, {"error": message, "status": status}, headers=headers)
+
+    def _authenticate(self, path: str) -> bool:
+        if is_health_check_path(path):
+            return True
+        provided = extract_secret_from_headers(self.headers)
+        expected = self.server.config.shared_secret
+        if verify_shared_secret(provided, expected):
+            return True
+        self._send_error_json(
+            HTTPStatus.UNAUTHORIZED,
+            "Unauthorized: missing or invalid shared secret",
+            headers={"WWW-Authenticate": 'Bearer realm="smart-things"'},
+        )
+        return False
 
     def _read_json(self) -> dict[str, Any] | None:
         length_header = self.headers.get("Content-Length")
@@ -58,7 +80,7 @@ class MiniPCHandler(BaseHTTPRequestHandler):
             path = "/"
 
         # 상태 확인 주소
-        if path in ("/", "/health", "/healthz", "/api/health"):
+        if is_health_check_path(path):
             self._send_json(
                 HTTPStatus.OK,
                 {
@@ -68,6 +90,9 @@ class MiniPCHandler(BaseHTTPRequestHandler):
                     "database": "connected",
                 },
             )
+            return
+
+        if not self._authenticate(path):
             return
 
         storage = self.server.storage
@@ -119,6 +144,12 @@ class MiniPCHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/")
+        if not path:
+            path = "/"
+
+        if not self._authenticate(path):
+            return
+
         storage = self.server.storage
 
         data = self._read_json()
@@ -170,6 +201,12 @@ class MiniPCHandler(BaseHTTPRequestHandler):
     def do_DELETE(self) -> None:
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/")
+        if not path:
+            path = "/"
+
+        if not self._authenticate(path):
+            return
+
         storage = self.server.storage
 
         if path.startswith("/api/reservations/"):
@@ -215,10 +252,16 @@ class MiniPCServer(ThreadingHTTPServer):
         self.storage.close()
 
 
-def create_server(config: Config | None = None, db_path: Path | str | None = None) -> MiniPCServer:
+def create_server(
+    config: Config | None = None,
+    db_path: Path | str | None = None,
+    shared_secret: str | None = None,
+) -> MiniPCServer:
     cfg = config or Config.from_env()
     if db_path is not None:
         cfg.db_path = Path(db_path)
+    if shared_secret is not None:
+        cfg.shared_secret = shared_secret
     return MiniPCServer(cfg)
 
 

@@ -161,7 +161,7 @@
     {
       "id": "LB-009",
       "reqs": ["REQ-024"],
-      "status": "todo",
+      "status": "done",
       "priority": "핵심",
       "category": "외부접속",
       "title": "공유 비밀키 인증",
@@ -170,9 +170,9 @@
       "parent": null,
       "deps": ["LB-006"],
       "doc": null,
-      "done_at": null,
+      "done_at": "2026-10-29",
       "must": "상태 확인 주소를 제외한 모든 요청에 적용한다. 비밀키는 저장소에 커밋하지 않는다.",
-      "memo": null
+      "memo": "[2026-10-29] 검증 완료: 비밀키 누락/오류 시 401 차단 및 데이터 미노출, 올바른 키(X-Shared-Secret 및 Bearer) 200 정상 조회, 헬스체크 주소 무인증 허용 검증. 단위/통합 테스트 21건 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인."
     },
     {
       "id": "LB-010",

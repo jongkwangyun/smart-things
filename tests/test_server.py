@@ -34,6 +34,7 @@ class TestServer(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         self.db_path = Path(self.temp_dir.name) / "server_test.db"
+        self.test_secret = "test-secret-key-1234"
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
@@ -44,12 +45,20 @@ class TestServer(unittest.TestCase):
         method: str,
         path: str,
         payload: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        secret: str | None = "test-secret-key-1234",
     ) -> tuple[int, dict[str, Any]]:
         body_bytes = json.dumps(payload, ensure_ascii=False).encode("utf-8") if payload is not None else b""
         lines = [f"{method} {path} HTTP/1.1", "Host: localhost"]
-        if payload is not None:
-            lines.append("Content-Type: application/json")
-            lines.append(f"Content-Length: {len(body_bytes)}")
+        req_headers = dict(headers or {})
+        if payload is not None and "Content-Type" not in req_headers:
+            req_headers["Content-Type"] = "application/json"
+        if payload is not None and "Content-Length" not in req_headers:
+            req_headers["Content-Length"] = str(len(body_bytes))
+        if secret is not None and "X-Shared-Secret" not in req_headers and "Authorization" not in req_headers:
+            req_headers["X-Shared-Secret"] = secret
+        for k, v in req_headers.items():
+            lines.append(f"{k}: {v}")
         raw_req = "\r\n".join(lines).encode("utf-8") + b"\r\n\r\n" + body_bytes
         sock = MockSocket(raw_req)
         MiniPCHandler(sock, ("127.0.0.1", 12345), server)  # type: ignore[arg-type]
@@ -80,7 +89,7 @@ class TestServer(unittest.TestCase):
         저장한 시험 데이터가 서버 프로세스를 껐다 켠 뒤에도 그대로 조회된다.
         """
         # --- 1단계: 첫 번째 서버 인스턴스 실행 및 데이터 저장 ---
-        srv1 = create_server(Config(host="127.0.0.1", port=0, db_path=self.db_path))
+        srv1 = create_server(Config(host="127.0.0.1", port=0, db_path=self.db_path, shared_secret=self.test_secret))
         try:
             # 1. 상태 확인 주소 응답 확인
             st_health, body_health = self._request(srv1, "GET", "/health")
@@ -140,7 +149,7 @@ class TestServer(unittest.TestCase):
             srv1.close()
 
         # --- 2단계: 동일한 DB 파일로 두 번째 서버 재실행 (프로세스 켬) ---
-        srv2 = create_server(Config(host="127.0.0.1", port=0, db_path=self.db_path))
+        srv2 = create_server(Config(host="127.0.0.1", port=0, db_path=self.db_path, shared_secret=self.test_secret))
         try:
             # 상태 확인 주소 정상 응답
             st_health2, body_health2 = self._request(srv2, "GET", "/health")
@@ -184,7 +193,7 @@ class TestServer(unittest.TestCase):
             srv2.close()
 
     def test_error_and_delete_handling(self) -> None:
-        srv = create_server(Config(host="127.0.0.1", port=0, db_path=self.db_path))
+        srv = create_server(Config(host="127.0.0.1", port=0, db_path=self.db_path, shared_secret=self.test_secret))
         try:
             # 404 Unknown path
             st, _ = self._request(srv, "GET", "/nonexistent")

@@ -12,6 +12,7 @@ def main() -> None:
     parser.add_argument("--host", default=None, help="바인딩 호스트 (기본: 0.0.0.0)")
     parser.add_argument("--port", type=int, default=None, help="바인딩 포트 (기본: 8080)")
     parser.add_argument("--db", type=Path, default=None, help="SQLite DB 파일 경로")
+    parser.add_argument("--secret", default=None, help="공유 비밀키 (지정하지 않으면 환경변수 사용)")
     args = parser.parse_args()
 
     cfg = Config.from_env()
@@ -21,6 +22,8 @@ def main() -> None:
         cfg.port = args.port
     if args.db:
         cfg.db_path = args.db
+    if args.secret:
+        cfg.shared_secret = args.secret
 
     run_server(cfg)
 

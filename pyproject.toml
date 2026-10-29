@@ -1,0 +1,51 @@
+[project]
+name = "smart-things"
+version = "0.0.0"
+description = "삼성 스마트싱스 로봇청소기(VR7MD97716G) 확장"
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "ruff",
+    "mypy",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["tools", ".codex/hooks"]
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+
+# Stop 훅(.codex/hooks/stop_quality_gate.py)이 읽는 설정.
+# 명령의 {python} 은 .venv 의 파이썬(없으면 훅을 실행한 파이썬)으로 바뀐다.
+[tool.stop_hook]
+command_timeout_seconds = 90
+code_extensions = [".py", ".js", ".jsx", ".ts", ".tsx", ".kt", ".java"]
+size_warn_lines = 300
+size_fail_lines = 500
+size_exclude_dirs = [
+    ".git", ".venv", "venv", "node_modules", "__pycache__", ".mypy_cache", ".ruff_cache",
+    "build", "dist", ".gradle", "generated", "gen", "migrations", "migration", "vendor", "third_party",
+]
+size_exclude_globs = ["*_pb2.py", "*_pb2_grpc.py", "*.min.js", "*.generated.*"]
+
+[tool.stop_hook.commands]
+lint = ["{python}", "-m", "ruff", "check", "."]
+build = [
+    "{python}", "-m", "compileall", "-q",
+    "-x", '[\\/](\.venv|\.git|node_modules|\.mypy_cache|\.ruff_cache)([\\/]|$)', ".",
+]
+typecheck = ["{python}", "-m", "mypy"]

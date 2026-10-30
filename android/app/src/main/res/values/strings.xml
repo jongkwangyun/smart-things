@@ -30,4 +30,23 @@
     <string name="server_info_service">서비스: %1$s</string>
     <string name="server_info_time">서버 시각(KST): %1$s</string>
     <string name="server_info_reservations">등록된 예약 수: %1$d건</string>
+    <!-- LB-013 1회성 예약 생성 리소스 -->
+    <string name="title_create_reservation">1회성 예약 추가</string>
+    <string name="subtitle_create_reservation">청소 날짜와 시각을 선택해 1회성 청소를 예약합니다.</string>
+    <string name="section_reservations">예약 관리</string>
+    <string name="btn_add_reservation">예약 추가</string>
+    <string name="btn_save_reservation">예약 저장</string>
+    <string name="btn_saving_reservation">저장 중…</string>
+    <string name="btn_pick_date">날짜 선택</string>
+    <string name="btn_pick_time">시각 선택</string>
+    <string name="label_select_datetime">청소 일시 선택</string>
+    <string name="label_selected_preview">선택된 예약 일시 (KST)</string>
+    <string name="notice_mode_zone_d03">기본 전체 청소로 예약됩니다 (청소 모드·구역 선택 없음 - D-03)</string>
+    <string name="msg_confirm_reservation_created">예약이 등록되었습니다</string>
+    <string name="msg_error_past_datetime">과거 시각은 예약할 수 없습니다.</string>
+    <string name="msg_error_server_not_configured">서버 주소와 비밀키가 설정되지 않았습니다. 메인 화면에서 먼저 서버에 연결해 주세요.</string>
+    <string name="title_confirm">확인</string>
+    <string name="title_guidance">안내</string>
+    <string name="btn_ok">확인</string>
+    <string name="btn_cancel">취소</string>
 </resources>

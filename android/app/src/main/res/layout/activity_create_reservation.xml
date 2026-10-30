@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/scrollViewCreateReservation"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@color/background" android:fillViewport="true">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:padding="20dp">
+
+        <LinearLayout
+            android:id="@+id/contentLayout"
+            android:layout_width="0dp" android:layout_height="wrap_content"
+            android:orientation="vertical"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.2"
+            app:layout_constraintWidth_max="640dp">
+
+            <!-- Title & Subtitle Header -->
+            <TextView
+                android:id="@+id/textTitle"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="@string/title_create_reservation"
+                android:textColor="@color/primary" android:textSize="22sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/textSubtitle"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/subtitle_create_reservation"
+                android:textColor="@color/text_secondary" android:textSize="13sp" />
+
+            <!-- Notice Card for D-03 (No Mode / Zone Selection) -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardNoticeModeZone"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                app:cardBackgroundColor="@color/surface" app:cardCornerRadius="10dp"
+                app:cardElevation="1dp" app:strokeColor="@color/border_color" app:strokeWidth="1dp">
+                <LinearLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical" android:padding="12dp">
+                    <TextView
+                        android:id="@+id/textNoticeModeZone"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="@string/notice_mode_zone_d03"
+                        android:textColor="@color/text_secondary" android:textSize="12sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Date and Time Picker Card -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardDateTimeSelection"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                app:cardBackgroundColor="@color/surface" app:cardCornerRadius="12dp"
+                app:cardElevation="2dp">
+                <LinearLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical" android:padding="16dp">
+
+                    <TextView
+                        android:id="@+id/textDateTimeHeader"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="@string/label_select_datetime"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp" android:textStyle="bold" />
+
+                    <!-- Date Selection Row -->
+                    <LinearLayout
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp" android:gravity="center_vertical"
+                        android:orientation="horizontal">
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnPickDate"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="wrap_content" android:layout_height="48dp"
+                            android:text="@string/btn_pick_date" android:textColor="@color/primary"
+                            app:cornerRadius="8dp" app:strokeColor="@color/primary" />
+                        <TextView
+                            android:id="@+id/textSelectedDate"
+                            android:layout_width="0dp" android:layout_height="wrap_content"
+                            android:layout_marginStart="16dp" android:layout_weight="1"
+                            android:textColor="@color/text_primary" android:textSize="15sp"
+                            android:textStyle="bold" tools:text="2026-10-31" />
+                    </LinearLayout>
+
+                    <!-- Time Selection Row -->
+                    <LinearLayout
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp" android:gravity="center_vertical"
+                        android:orientation="horizontal">
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnPickTime"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="wrap_content" android:layout_height="48dp"
+                            android:text="@string/btn_pick_time" android:textColor="@color/primary"
+                            app:cornerRadius="8dp" app:strokeColor="@color/primary" />
+                        <TextView
+                            android:id="@+id/textSelectedTime"
+                            android:layout_width="0dp" android:layout_height="wrap_content"
+                            android:layout_marginStart="16dp" android:layout_weight="1"
+                            android:textColor="@color/text_primary" android:textSize="15sp"
+                            android:textStyle="bold" tools:text="10:00" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Datetime Preview Card (KST) -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardSelectedPreview"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                app:cardBackgroundColor="@color/surface" app:cardCornerRadius="12dp"
+                app:cardElevation="2dp">
+                <LinearLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical" android:padding="16dp">
+                    <TextView
+                        android:id="@+id/textSelectedDateTimeLabel"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="@string/label_selected_preview"
+                        android:textColor="@color/text_secondary" android:textSize="12sp" />
+                    <TextView
+                        android:id="@+id/textSelectedDateTime"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp" android:textColor="@color/primary"
+                        android:textSize="18sp" android:textStyle="bold"
+                        tools:text="2026년 10월 31일 10:00 (KST)" />
+                    <TextView
+                        android:id="@+id/textIsoPreview"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp" android:textColor="@color/text_secondary"
+                        android:textSize="12sp" tools:text="2026-10-31T10:00:00+09:00" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Validation Warning Card (과거 시각 불가 안내 - done_when) -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardValidationWarning"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="16dp" android:visibility="gone"
+                app:cardBackgroundColor="@color/status_error_bg" app:cardCornerRadius="12dp"
+                app:cardElevation="0dp" app:strokeColor="@color/status_error" app:strokeWidth="1.5dp"
+                tools:visibility="visible">
+                <LinearLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical" android:padding="16dp">
+                    <TextView
+                        android:id="@+id/textValidationTitle"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="@string/title_guidance" android:textColor="@color/status_error"
+                        android:textSize="15sp" android:textStyle="bold" />
+                    <TextView
+                        android:id="@+id/textValidationMessage"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp" android:text="@string/msg_error_past_datetime"
+                        android:textColor="@color/status_error" android:textSize="14sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Confirmation Card (예약 확인 메시지 - done_when) -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardConfirmation"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="16dp" android:visibility="gone"
+                app:cardBackgroundColor="@color/status_connected_bg" app:cardCornerRadius="12dp"
+                app:cardElevation="0dp" app:strokeColor="@color/status_connected" app:strokeWidth="1.5dp"
+                tools:visibility="visible">
+                <LinearLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical" android:padding="16dp">
+                    <TextView
+                        android:id="@+id/textConfirmationTitle"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="@string/title_confirm" android:textColor="@color/status_connected"
+                        android:textSize="15sp" android:textStyle="bold" />
+                    <TextView
+                        android:id="@+id/textConfirmationMessage"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp" android:text="@string/msg_confirm_reservation_created"
+                        android:textColor="@color/status_connected" android:textSize="16sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:id="@+id/textConfirmationDetail"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp" android:textColor="@color/text_secondary"
+                        android:textSize="12sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Save Button & Progress -->
+            <FrameLayout
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="20dp">
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSaveReservation"
+                    android:layout_width="match_parent" android:layout_height="52dp"
+                    android:backgroundTint="@color/primary" android:text="@string/btn_save_reservation"
+                    android:textColor="@color/on_primary" android:textSize="16sp"
+                    android:textStyle="bold" app:cornerRadius="8dp" />
+                <ProgressBar
+                    android:id="@+id/progressBarSave"
+                    android:layout_width="32dp" android:layout_height="32dp"
+                    android:layout_gravity="center" android:indeterminateTint="@color/on_primary"
+                    android:visibility="gone" />
+            </FrameLayout>
+
+            <!-- Cancel Button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnCancel"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="match_parent" android:layout_height="48dp"
+                android:layout_marginTop="8dp" android:text="@string/btn_cancel"
+                android:textColor="@color/text_secondary" android:textSize="14sp" />
+        </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</ScrollView>

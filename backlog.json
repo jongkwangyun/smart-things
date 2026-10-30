@@ -225,7 +225,7 @@
     {
       "id": "LB-013",
       "reqs": ["REQ-001"],
-      "status": "todo",
+      "status": "done",
       "priority": "핵심",
       "category": "1회성예약",
       "title": "1회성 예약 생성 화면",
@@ -234,9 +234,9 @@
       "parent": null,
       "deps": ["LB-010", "LB-012"],
       "doc": "SPEC.md#user-flows",
-      "done_at": null,
+      "done_at": "2026-10-30",
       "must": "흐름은 SPEC F-1을 따른다.",
-      "memo": null
+      "memo": "[2026-10-30] 검증 완료: SPEC F-1 흐름 준수 예약 추가 화면(CreateReservationActivity.kt, activity_create_reservation.xml), 날짜/시각 선택기, 과거 시각 검증 및 안내 문구 표출/저장 차단, 미래 시각 201 Created 저장 및 확인 다이얼로그(strings.xml), D-03 모드/구역 선택 배제, S21+/Fold8 반응형 레이아웃 구현. 단위/통합 테스트 11건(전체 91건) 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인."
     },
     {
       "id": "LB-014",

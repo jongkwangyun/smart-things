@@ -1,0 +1,264 @@
+package com.smartthings.cleaner
+
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
+import android.os.Bundle
+import android.view.View
+import android.widget.ProgressBar
+import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.card.MaterialCardView
+import com.smartthings.cleaner.model.CreateReservationResult
+import com.smartthings.cleaner.network.ServerClient
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.ZoneId
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+
+/**
+ * 1회성 청소 예약 생성 액티비티.
+ *
+ * SPEC:
+ * - done_when: 앱에서 날짜·시각을 골라 저장하면 확인 메시지가 뜨고,
+ *              과거 시각을 고르면 저장되지 않고 안내가 보인다
+ * - SPEC F-1: 2. "예약 추가" -> 날짜·시각 선택 -> 저장
+ * - D-03: 모드·구역 선택 없음 (기본 전체 청소만 지원)
+ * - D-09 / REQ-024: 공유 비밀키 인증
+ * - REQ-001: 분 단위 미래 일시 KST 지정
+ * - REQ-028 / REQ-029: S21+ 및 Fold8(접힘/펼침) 반응형 지원
+ */
+class CreateReservationActivity : AppCompatActivity() {
+
+    companion object {
+        val KST_ZONE: ZoneId = ZoneId.of("Asia/Seoul")
+        val DISPLAY_FORMATTER: DateTimeFormatter =
+            DateTimeFormatter.ofPattern("yyyy년 MM월 dd일 HH:mm (KST)", Locale.KOREAN)
+        val ISO_FORMATTER: DateTimeFormatter =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:00+09:00", Locale.ROOT)
+
+        sealed class ValidationState {
+            object Valid : ValidationState()
+            data class Past(val message: String) : ValidationState()
+        }
+
+        fun checkDateTimeValidity(
+            selected: ZonedDateTime,
+            currentKst: ZonedDateTime = ZonedDateTime.now(KST_ZONE)
+        ): ValidationState {
+            return if (!selected.isAfter(currentKst)) {
+                ValidationState.Past("과거 시각은 예약할 수 없습니다.")
+            } else {
+                ValidationState.Valid
+            }
+        }
+
+        fun formatIsoKst(dateTime: ZonedDateTime): String {
+            return dateTime.format(ISO_FORMATTER)
+        }
+    }
+
+    private val serverClient = ServerClient()
+
+    private var selectedDate: LocalDate = LocalDate.now(KST_ZONE).plusDays(1)
+    private var selectedTime: LocalTime = LocalTime.of(10, 0)
+
+    private lateinit var btnPickDate: MaterialButton
+    private lateinit var textSelectedDate: TextView
+    private lateinit var btnPickTime: MaterialButton
+    private lateinit var textSelectedTime: TextView
+
+    private lateinit var textSelectedDateTime: TextView
+    private lateinit var textIsoPreview: TextView
+
+    private lateinit var cardValidationWarning: MaterialCardView
+    private lateinit var textValidationMessage: TextView
+
+    private lateinit var cardConfirmation: MaterialCardView
+    private lateinit var textConfirmationMessage: TextView
+    private lateinit var textConfirmationDetail: TextView
+
+    private lateinit var btnSaveReservation: MaterialButton
+    private lateinit var progressBarSave: ProgressBar
+    private lateinit var btnCancel: MaterialButton
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_create_reservation)
+
+        initViews()
+        setDefaultDateTime()
+        updateDateTimePreview()
+    }
+
+    private fun initViews() {
+        btnPickDate = findViewById(R.id.btnPickDate)
+        textSelectedDate = findViewById(R.id.textSelectedDate)
+        btnPickTime = findViewById(R.id.btnPickTime)
+        textSelectedTime = findViewById(R.id.textSelectedTime)
+
+        textSelectedDateTime = findViewById(R.id.textSelectedDateTime)
+        textIsoPreview = findViewById(R.id.textIsoPreview)
+
+        cardValidationWarning = findViewById(R.id.cardValidationWarning)
+        textValidationMessage = findViewById(R.id.textValidationMessage)
+
+        cardConfirmation = findViewById(R.id.cardConfirmation)
+        textConfirmationMessage = findViewById(R.id.textConfirmationMessage)
+        textConfirmationDetail = findViewById(R.id.textConfirmationDetail)
+
+        btnSaveReservation = findViewById(R.id.btnSaveReservation)
+        progressBarSave = findViewById(R.id.progressBarSave)
+        btnCancel = findViewById(R.id.btnCancel)
+
+        btnPickDate.setOnClickListener { showDatePicker() }
+        btnPickTime.setOnClickListener { showTimePicker() }
+        btnSaveReservation.setOnClickListener { performSaveReservation() }
+        btnCancel.setOnClickListener { finish() }
+    }
+
+    private fun setDefaultDateTime() {
+        val nowKst = ZonedDateTime.now(KST_ZONE)
+        selectedDate = nowKst.toLocalDate().plusDays(1)
+        selectedTime = LocalTime.of(10, 0)
+    }
+
+    fun getSelectedZonedDateTime(): ZonedDateTime {
+        return ZonedDateTime.of(selectedDate, selectedTime, KST_ZONE)
+    }
+
+    fun setSelectedDateTime(dateTime: ZonedDateTime) {
+        val kst = dateTime.withZoneSameInstant(KST_ZONE)
+        selectedDate = kst.toLocalDate()
+        selectedTime = LocalTime.of(kst.hour, kst.minute)
+        updateDateTimePreview()
+    }
+
+    private fun showDatePicker() {
+        DatePickerDialog(
+            this,
+            { _, year, month, dayOfMonth ->
+                selectedDate = LocalDate.of(year, month + 1, dayOfMonth)
+                updateDateTimePreview()
+            },
+            selectedDate.year,
+            selectedDate.monthValue - 1,
+            selectedDate.dayOfMonth
+        ).show()
+    }
+
+    private fun showTimePicker() {
+        TimePickerDialog(
+            this,
+            { _, hourOfDay, minute ->
+                selectedTime = LocalTime.of(hourOfDay, minute)
+                updateDateTimePreview()
+            },
+            selectedTime.hour,
+            selectedTime.minute,
+            true
+        ).show()
+    }
+
+    fun updateDateTimePreview() {
+        val zdt = getSelectedZonedDateTime()
+        textSelectedDate.text = String.format(Locale.KOREAN, "%04d-%02d-%02d", zdt.year, zdt.monthValue, zdt.dayOfMonth)
+        textSelectedTime.text = String.format(Locale.KOREAN, "%02d:%02d", zdt.hour, zdt.minute)
+        textSelectedDateTime.text = zdt.format(DISPLAY_FORMATTER)
+        textIsoPreview.text = formatIsoKst(zdt)
+
+        val validity = checkDateTimeValidity(zdt)
+        if (validity is ValidationState.Past) {
+            // 과거 시각을 고르면 저장되지 않고 안내가 보인다 (done_when)
+            cardValidationWarning.visibility = View.VISIBLE
+            textValidationMessage.text = getString(R.string.msg_error_past_datetime)
+            cardConfirmation.visibility = View.GONE
+        } else {
+            cardValidationWarning.visibility = View.GONE
+        }
+    }
+
+    private fun performSaveReservation() {
+        val zdt = getSelectedZonedDateTime()
+        val validity = checkDateTimeValidity(zdt)
+
+        // 과거 시각 검증: 과거 시각을 고르면 저장되지 않고 안내가 보인다 (done_when)
+        if (validity is ValidationState.Past) {
+            cardValidationWarning.visibility = View.VISIBLE
+            textValidationMessage.text = getString(R.string.msg_error_past_datetime)
+            cardConfirmation.visibility = View.GONE
+            return
+        }
+
+        val serverUrl = intent.getStringExtra("EXTRA_SERVER_URL")
+            ?: ServerClient.getSavedServerUrl(this)
+        val sharedSecret = intent.getStringExtra("EXTRA_SHARED_SECRET")
+            ?: ServerClient.getSavedSharedSecret(this)
+
+        if (serverUrl.isBlank() || sharedSecret.isBlank()) {
+            cardValidationWarning.visibility = View.VISIBLE
+            textValidationMessage.text = getString(R.string.msg_error_server_not_configured)
+            return
+        }
+
+        setSaving(true)
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            val isoString = formatIsoKst(zdt)
+            val result = serverClient.createReservation(serverUrl, sharedSecret, isoString)
+
+            withContext(Dispatchers.Main) {
+                setSaving(false)
+                when (result) {
+                    is CreateReservationResult.Success -> {
+                        // 저장하면 확인 메시지가 뜨고 (done_when)
+                        cardValidationWarning.visibility = View.GONE
+                        cardConfirmation.visibility = View.VISIBLE
+                        textConfirmationMessage.text = getString(R.string.msg_confirm_reservation_created)
+                        textConfirmationDetail.text =
+                            "예약 ID: ${result.id}\n상태: ${result.status}\n일시: ${result.scheduledAt}"
+
+                        showConfirmationDialog(getString(R.string.msg_confirm_reservation_created))
+                    }
+                    is CreateReservationResult.Failure -> {
+                        cardValidationWarning.visibility = View.VISIBLE
+                        textValidationMessage.text = result.message
+                        cardConfirmation.visibility = View.GONE
+                    }
+                }
+            }
+        }
+    }
+
+    private fun setSaving(isSaving: Boolean) {
+        btnSaveReservation.isEnabled = !isSaving
+        btnSaveReservation.text = if (isSaving) {
+            getString(R.string.btn_saving_reservation)
+        } else {
+            getString(R.string.btn_save_reservation)
+        }
+        progressBarSave.visibility = if (isSaving) View.VISIBLE else View.GONE
+        btnPickDate.isEnabled = !isSaving
+        btnPickTime.isEnabled = !isSaving
+    }
+
+    private fun showConfirmationDialog(message: String) {
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.title_confirm))
+            .setMessage(message)
+            .setPositiveButton(getString(R.string.btn_ok)) { dialog, _ ->
+                dialog.dismiss()
+                setResult(RESULT_OK)
+                finish()
+            }
+            .setCancelable(false)
+            .show()
+    }
+}

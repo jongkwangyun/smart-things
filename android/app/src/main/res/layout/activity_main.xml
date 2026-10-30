@@ -267,6 +267,18 @@
                         android:textColor="@color/text_secondary"
                         android:textSize="13sp"
                         tools:text="등록된 예약 수: 0건" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnCreateReservation"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="12dp"
+                        android:backgroundTint="@color/primary"
+                        android:text="@string/btn_add_reservation"
+                        android:textColor="@color/on_primary"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        app:cornerRadius="8dp" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
         </LinearLayout>

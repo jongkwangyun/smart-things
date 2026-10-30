@@ -3,11 +3,13 @@ package com.smartthings.cleaner.network
 import android.content.Context
 import com.smartthings.cleaner.model.ConnectionError
 import com.smartthings.cleaner.model.ConnectionState
+import com.smartthings.cleaner.model.CreateReservationResult
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.IOException
 import java.io.InputStream
 import java.io.InputStreamReader
+import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.MalformedURLException
 import java.net.URL
@@ -164,6 +166,91 @@ class ServerClient(
             AuthCheckResult.Failure("인증 확인 중 통신 실패: ${e.message}")
         } catch (e: Exception) {
             AuthCheckResult.Failure("인증 확인 오류: ${e.message}")
+        } finally {
+            conn?.disconnect()
+        }
+    }
+
+    /**
+     * 1회성 청소 예약을 서버에 등록한다 (POST /api/reservations).
+     *
+     * - REQ-001: 분 단위 미래 일시 KST ISO 8601 문자열 전송
+     * - D-03: 모드·구역 필드 절대 포함하지 않음 (기본 전체 청소)
+     * - D-09 / REQ-024: 공유 비밀키 인증 (X-Shared-Secret, Authorization: Bearer)
+     */
+    fun createReservation(
+        serverUrl: String,
+        sharedSecret: String,
+        scheduledAtIso: String
+    ): CreateReservationResult {
+        val cleanUrl = normalizeUrl(serverUrl)
+        val cleanSecret = sharedSecret.trim()
+        val cleanScheduledAt = scheduledAtIso.trim()
+
+        if (cleanUrl.isEmpty() || cleanSecret.isEmpty()) {
+            return CreateReservationResult.Failure(400, "서버 주소와 공유 비밀키가 필요합니다.")
+        }
+        if (cleanScheduledAt.isEmpty()) {
+            return CreateReservationResult.Failure(400, "예약 일시가 지정되지 않았습니다.")
+        }
+
+        var conn: HttpURLConnection? = null
+        return try {
+            val targetUrl = URL("$cleanUrl/api/reservations")
+            conn = (targetUrl.openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                connectTimeout = connectTimeoutMs
+                readTimeout = readTimeoutMs
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+                setRequestProperty("X-Shared-Secret", cleanSecret)
+                setRequestProperty("Authorization", "Bearer $cleanSecret")
+            }
+
+            // D-03: 청소 모드 및 구역 필드 배제 (기본 전체 청소)
+            val payload = JSONObject().apply {
+                put("scheduled_at", cleanScheduledAt)
+            }
+
+            OutputStreamWriter(conn.outputStream, "UTF-8").use { writer ->
+                writer.write(payload.toString())
+                writer.flush()
+            }
+
+            val code = conn.responseCode
+            when (code) {
+                HttpURLConnection.HTTP_CREATED, HttpURLConnection.HTTP_OK -> {
+                    val body = readStream(conn.inputStream)
+                    val json = JSONObject(body)
+                    val id = json.optString("id", "")
+                    val scheduledAt = json.optString("scheduled_at", json.optString("reserved_at", cleanScheduledAt))
+                    val status = json.optString("status", "예정")
+                    CreateReservationResult.Success(id, scheduledAt, status)
+                }
+                HttpURLConnection.HTTP_BAD_REQUEST -> {
+                    val stream = conn.errorStream ?: conn.inputStream
+                    val body = if (stream != null) readStream(stream) else ""
+                    val msg = try {
+                        JSONObject(body).optString("error", "잘못된 요청입니다.")
+                    } catch (e: Exception) {
+                        "과거 시각 또는 잘못된 형식입니다: HTTP 400"
+                    }
+                    CreateReservationResult.Failure(400, msg)
+                }
+                HttpURLConnection.HTTP_UNAUTHORIZED -> {
+                    CreateReservationResult.Failure(
+                        401,
+                        "인증 실패: 공유 비밀키가 올바르지 않습니다. (REQ-024, D-09)"
+                    )
+                }
+                else -> {
+                    CreateReservationResult.Failure(code, "서버 응답 오류 (HTTP $code)")
+                }
+            }
+        } catch (e: IOException) {
+            CreateReservationResult.Failure(0, "서버에 연결할 수 없습니다: ${e.message}")
+        } catch (e: Exception) {
+            CreateReservationResult.Failure(0, "예약 생성 중 오류: ${e.message}")
         } finally {
             conn?.disconnect()
         }

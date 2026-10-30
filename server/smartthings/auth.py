@@ -1,0 +1,269 @@
+from __future__ import annotations
+
+import json
+import logging
+import os
+import urllib.error
+import urllib.parse
+import urllib.request
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any, Literal
+
+from server.time_utils import KST, format_kst, now_kst
+
+TokenType = Literal["pat", "oauth"]
+
+
+def mask_token(token: str | None) -> str:
+    """보안을 위해 토큰의 앞/뒤 3글자만 남기고 마스킹한다."""
+    if not token:
+        return "[EMPTY]"
+    token_str = token.strip()
+    if len(token_str) <= 8:
+        return "***"
+    return f"{token_str[:3]}***{token_str[-3:]}"
+
+
+class KSTFormatter(logging.Formatter):
+    """KST(한국 표준시) 기준 일시 포맷터."""
+
+    def formatTime(self, record: logging.LogRecord, datefmt: str | None = None) -> str:
+        dt = datetime.fromtimestamp(record.created, tz=KST)
+        if datefmt:
+            return dt.strftime(datefmt)
+        return dt.isoformat()
+
+
+def get_smartthings_logger(log_file: Path | str = "server/logs/smartthings.log") -> logging.Logger:
+    """스마트싱스 전용 로거를 설정하고 반환한다."""
+    logger = logging.getLogger("server.smartthings")
+    logger.setLevel(logging.INFO)
+
+    log_path = Path(log_file).resolve()
+    for h in logger.handlers:
+        if isinstance(h, logging.FileHandler) and Path(h.baseFilename).resolve() == log_path:
+            return logger
+
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    handler = logging.FileHandler(log_path, encoding="utf-8")
+    handler.setLevel(logging.INFO)
+    formatter = KSTFormatter(
+        fmt="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    return logger
+
+
+class TokenRefreshError(Exception):
+    """스마트싱스 토큰 갱신 실패 예외."""
+
+
+@dataclass
+class TokenInfo:
+    """스마트싱스 인증 토큰 메타데이터 및 만료 관리."""
+
+    access_token: str
+    token_type: TokenType = "pat"
+    refresh_token: str | None = None
+    expires_at: datetime | None = None
+    client_id: str | None = None
+    client_secret: str | None = None
+    token_url: str = "https://api.smartthings.com/oauth/token"
+
+    def is_expired(self, buffer_seconds: int = 60) -> bool:
+        """만료 시각 버퍼를 고려하여 토큰 만료 여부를 판별한다."""
+        if self.expires_at is None:
+            return False
+        cutoff = self.expires_at - timedelta(seconds=buffer_seconds)
+        return now_kst() >= cutoff
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "token_type": self.token_type,
+            "access_token": mask_token(self.access_token),
+            "has_refresh_token": bool(self.refresh_token),
+            "expires_at": format_kst(self.expires_at) if self.expires_at else None,
+        }
+
+
+def parse_env_file(env_path: Path | str = ".env") -> dict[str, str]:
+    """지정된 .env 파일에서 환경 변수를 파싱한다."""
+    p = Path(env_path)
+    if not p.is_file():
+        return {}
+    results: dict[str, str] = {}
+    try:
+        content = p.read_text(encoding="utf-8")
+        for line in content.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            results[k.strip()] = v.strip().strip("'\"")
+    except Exception:
+        pass
+    return results
+
+
+def resolve_credential(key: str, env_path: Path | str = ".env", default: str = "") -> str:
+    """환경 변수 -> .env 파일 순으로 자격 증명을 읽는다."""
+    val = os.environ.get(key)
+    if val:
+        return val.strip()
+    file_vars = parse_env_file(env_path)
+    return file_vars.get(key, default).strip()
+
+
+RefreshCallback = Callable[[TokenInfo], TokenInfo]
+
+
+class SmartThingsTokenManager:
+    """스마트싱스 토큰 관리자. 만료 감지 및 자동 갱신을 처리한다."""
+
+    def __init__(
+        self,
+        token_info: TokenInfo,
+        log_file: Path | str = "server/logs/smartthings.log",
+        refresh_handler: RefreshCallback | None = None,
+        env_path: Path | str = ".env",
+    ) -> None:
+        self.token_info = token_info
+        self.log_file = Path(log_file)
+        self.refresh_handler = refresh_handler
+        self.env_path = Path(env_path)
+        self.logger = get_smartthings_logger(self.log_file)
+
+    @classmethod
+    def from_env(
+        cls,
+        env_path: Path | str = ".env",
+        log_file: Path | str = "server/logs/smartthings.log",
+        refresh_handler: RefreshCallback | None = None,
+    ) -> SmartThingsTokenManager:
+        token = (
+            resolve_credential("SMARTTHINGS_TOKEN", env_path=env_path)
+            or resolve_credential("SMARTTHINGS_PAT", env_path=env_path)
+            or resolve_credential("SMARTTHINGS_ACCESS_TOKEN", env_path=env_path)
+        )
+        if not token:
+            raise ValueError("스마트싱스 인증 토큰이 설정되지 않았습니다 (SMARTTHINGS_TOKEN).")
+
+        refresh_token = resolve_credential("SMARTTHINGS_REFRESH_TOKEN", env_path=env_path) or None
+        token_type: TokenType = "oauth" if refresh_token else "pat"
+        client_id = resolve_credential("SMARTTHINGS_CLIENT_ID", env_path=env_path) or None
+        client_secret = resolve_credential("SMARTTHINGS_CLIENT_SECRET", env_path=env_path) or None
+
+        token_info = TokenInfo(
+            access_token=token,
+            token_type=token_type,
+            refresh_token=refresh_token,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+        return cls(token_info=token_info, log_file=log_file, refresh_handler=refresh_handler, env_path=env_path)
+
+    def is_expired(self, buffer_seconds: int = 60) -> bool:
+        """현재 토큰 만료 여부를 반환한다."""
+        return self.token_info.is_expired(buffer_seconds)
+
+    def force_expire(self) -> None:
+        """토큰을 강제로 만료 상태로 만든다 (검증 및 테스트 목적)."""
+        past_time = now_kst() - timedelta(seconds=10)
+        self.token_info.expires_at = past_time
+        self.logger.info(
+            "스마트싱스 토큰 강제 만료 설정 완료: type=%s, expired_at=%s",
+            self.token_info.token_type,
+            format_kst(past_time),
+        )
+
+    def get_token(self) -> str:
+        """유효한 액세스 토큰을 반환한다. 만료 시 자동 갱신을 수행한다."""
+        if self.is_expired():
+            self.logger.info(
+                "토큰 만료 감지됨 (expires_at=%s), 자동 갱신을 수행합니다.",
+                format_kst(self.token_info.expires_at) if self.token_info.expires_at else "None",
+            )
+            self.refresh(reason="token_expired")
+        return self.token_info.access_token
+
+    def refresh(self, reason: str = "manual") -> TokenInfo:
+        """토큰을 갱신하고 결과를 smartthings.log 에 기록한다."""
+        self.logger.info(
+            "토큰 갱신 시작: reason=%s, type=%s, token=%s",
+            reason,
+            self.token_info.token_type,
+            mask_token(self.token_info.access_token),
+        )
+
+        try:
+            if self.refresh_handler:
+                new_info = self.refresh_handler(self.token_info)
+            elif self.token_info.token_type == "oauth" and self.token_info.refresh_token:
+                new_info = self._refresh_oauth()
+            else:
+                new_info = self._refresh_from_env_or_extend()
+        except Exception as e:
+            self.logger.error("토큰 갱신 실패: %s", e)
+            raise TokenRefreshError(f"토큰 갱신 실패: {e}") from e
+
+        self.token_info = new_info
+        self.logger.info(
+            "토큰 갱신 완료: type=%s, token=%s, expires_at=%s",
+            self.token_info.token_type,
+            mask_token(self.token_info.access_token),
+            format_kst(self.token_info.expires_at) if self.token_info.expires_at else "None",
+        )
+        return self.token_info
+
+    def _refresh_from_env_or_extend(self) -> TokenInfo:
+        """PAT 또는 .env 파일에서 토큰을 재로딩하고 유효기간을 연장한다."""
+        env_token = (
+            resolve_credential("SMARTTHINGS_TOKEN", env_path=self.env_path)
+            or resolve_credential("SMARTTHINGS_PAT", env_path=self.env_path)
+        )
+        active_token = env_token if env_token else self.token_info.access_token
+        new_expires_at = now_kst() + timedelta(hours=1)
+        return TokenInfo(
+            access_token=active_token,
+            token_type=self.token_info.token_type,
+            refresh_token=self.token_info.refresh_token,
+            expires_at=new_expires_at,
+            client_id=self.token_info.client_id,
+            client_secret=self.token_info.client_secret,
+            token_url=self.token_info.token_url,
+        )
+
+    def _refresh_oauth(self) -> TokenInfo:
+        """OAuth 리프레시 토큰 엔드포인트를 호출하여 토큰을 갱신한다."""
+        if not self.token_info.client_id or not self.token_info.client_secret or not self.token_info.refresh_token:
+            raise TokenRefreshError("OAuth 토큰 갱신에 필요한 client_id, client_secret, refresh_token이 없습니다.")
+
+        data = urllib.parse.urlencode({
+            "grant_type": "refresh_token",
+            "client_id": self.token_info.client_id,
+            "client_secret": self.token_info.client_secret,
+            "refresh_token": self.token_info.refresh_token,
+        }).encode("utf-8")
+
+        req = urllib.request.Request(self.token_info.token_url, data=data, method="POST")
+        req.add_header("Content-Type", "application/x-www-form-urlencoded")
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+            access_token = body["access_token"]
+            refresh_token = body.get("refresh_token", self.token_info.refresh_token)
+            expires_in = int(body.get("expires_in", 3600))
+            expires_at = now_kst() + timedelta(seconds=expires_in)
+            return TokenInfo(
+                access_token=access_token,
+                token_type="oauth",
+                refresh_token=refresh_token,
+                expires_at=expires_at,
+                client_id=self.token_info.client_id,
+                client_secret=self.token_info.client_secret,
+                token_url=self.token_info.token_url,
+            )

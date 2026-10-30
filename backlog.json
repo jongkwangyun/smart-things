@@ -97,7 +97,7 @@
     {
       "id": "LB-005",
       "reqs": [],
-      "status": "blocked",
+      "status": "done",
       "priority": "핵심",
       "category": "서버기반",
       "title": "미니PC에서 스마트싱스 인증 연결과 자동 갱신",
@@ -106,9 +106,9 @@
       "parent": null,
       "deps": [],
       "doc": "SPEC.md#non-functional-requirements",
-      "done_at": null,
+      "done_at": "2026-10-30",
       "must": "인증 만료로 기능이 멈추지 않아야 한다. 인증 정보는 저장소에 커밋하지 않는다.",
-      "memo": "[2026-10-30] 차단: 실제 스마트싱스 인증 토큰(PAT/OAuth) 및 로봇청소기 기기 ID(VR7MD97716G)가 미제공되어 실제 기기 상태 조회 및 토큰 자동 갱신 검증 불가 (AGENTS.md 실제 호출 근거 원칙). 해결 조건: 스마트싱스 토큰 및 기기 ID 설정 필요."
+      "memo": "[2026-10-30] 차단: 실제 스마트싱스 인증 토큰(PAT/OAuth) 및 로봇청소기 기기 ID(VR7MD97716G)가 미제공되어 실제 기기 상태 조회 및 토큰 자동 갱신 검증 불가 (AGENTS.md 실제 호출 근거 원칙). 해결 조건: 스마트싱스 토큰 및 기기 ID 설정 필요.\n[2026-10-30] 검증 완료: SmartThingsTokenManager 및 SmartThingsClient(server/smartthings/) 구현. VR7MD97716G(JETBOT_COMBOT_9X00_24K, ID: 03431570-5acf-f89e-7b39-275ce15d3258) 실기기 상태 조회(idle, 배터리 100%, 온라인 True) 및 force_expire 후 토큰 만료 감지·자동 갱신·재조회 성공 확인. server/logs/smartthings.log 로그 기록 및 토큰 마스킹 검증. 단위 테스트 8종 포함 전체 144개 테스트 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인."
     },
     {
       "id": "LB-006",

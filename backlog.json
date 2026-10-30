@@ -481,7 +481,7 @@
     {
       "id": "LB-029",
       "reqs": ["REQ-025"],
-      "status": "todo",
+      "status": "done",
       "priority": "검증",
       "category": "앱기반",
       "title": "앱 실행 시 서버 연결 불가 경고",
@@ -490,9 +490,9 @@
       "parent": null,
       "deps": ["LB-010"],
       "doc": "SPEC.md#decisions",
-      "done_at": null,
+      "done_at": "2026-10-30",
       "must": "앱 실행 시 확인만 한다. 백그라운드 감시는 하지 않는다 (D-13).",
-      "memo": null
+      "memo": "[2026-10-30] 검증 완료: 앱 실행 시 서버 오프라인 상태 감지 및 '서버에 연결할 수 없음' 경고 카드 표출(MainActivity.kt, strings.xml, activity_main.xml), D-13 백그라운드 감시 미포함 검증. 단위/시뮬레이션 테스트 8건(전체 80건) 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인."
     },
     {
       "id": "LB-030",

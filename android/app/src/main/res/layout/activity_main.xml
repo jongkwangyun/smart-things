@@ -44,6 +44,46 @@
                 android:textColor="@color/text_secondary"
                 android:textSize="13sp" />
 
+            <!-- Server Unreachable Warning Card (REQ-025, D-13) -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardServerWarning"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="@color/status_error_bg"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/status_error"
+                app:strokeWidth="1.5dp"
+                tools:visibility="visible">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:id="@+id/textServerWarningTitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/server_unreachable_warning"
+                        android:textColor="@color/status_error"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/textServerWarningMessage"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="@string/error_unreachable"
+                        android:textColor="@color/text_primary"
+                        android:textSize="13sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
             <!-- Connection Status Card -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardConnectionStatus"

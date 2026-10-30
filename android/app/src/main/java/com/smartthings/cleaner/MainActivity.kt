@@ -10,6 +10,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.card.MaterialCardView
+import com.smartthings.cleaner.model.ConnectionError
 import com.smartthings.cleaner.model.ConnectionState
 import com.smartthings.cleaner.network.ServerClient
 import kotlinx.coroutines.Dispatchers
@@ -41,6 +42,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var textConnectionStatus: TextView
     private lateinit var textStatusDetail: TextView
 
+    private lateinit var cardServerWarning: MaterialCardView
+    private lateinit var textServerWarningTitle: TextView
+    private lateinit var textServerWarningMessage: TextView
+
     private lateinit var cardServerInfo: MaterialCardView
     private lateinit var textServiceName: TextView
     private lateinit var textServerTime: TextView
@@ -51,7 +56,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         initViews()
-        loadSavedCredentials()
+        checkConnectionOnLaunch()
     }
 
     private fun initViews() {
@@ -59,6 +64,10 @@ class MainActivity : AppCompatActivity() {
         editSharedSecret = findViewById(R.id.editSharedSecret)
         btnConnect = findViewById(R.id.btnConnect)
         progressBar = findViewById(R.id.progressBar)
+
+        cardServerWarning = findViewById(R.id.cardServerWarning)
+        textServerWarningTitle = findViewById(R.id.textServerWarningTitle)
+        textServerWarningMessage = findViewById(R.id.textServerWarningMessage)
 
         cardConnectionStatus = findViewById(R.id.cardConnectionStatus)
         textConnectionStatus = findViewById(R.id.textConnectionStatus)
@@ -74,6 +83,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * 앱 실행 시 서버 연결 확인 (D-13: 백그라운드 감시 없음, 앱 실행 시 확인만).
+     */
+    private fun checkConnectionOnLaunch() {
+        loadSavedCredentials()
+    }
+
     private fun loadSavedCredentials() {
         val savedUrl = ServerClient.getSavedServerUrl(this)
         val savedSecret = ServerClient.getSavedSharedSecret(this)
@@ -85,7 +101,7 @@ class MainActivity : AppCompatActivity() {
             editSharedSecret.setText(savedSecret)
         }
 
-        // 저장된 자격 증명이 있으면 자동으로 연결 상태 확인 시도
+        // 저장된 자격 증명이 있으면 앱 실행 시 즉시 연결 상태 확인 (D-13)
         if (savedUrl.isNotEmpty() && savedSecret.isNotEmpty()) {
             performConnectionCheck()
         }
@@ -110,6 +126,8 @@ class MainActivity : AppCompatActivity() {
         btnConnect.text = getString(R.string.btn_connecting)
         progressBar.visibility = View.VISIBLE
 
+        cardServerWarning.visibility = View.GONE
+
         textConnectionStatus.text = getString(R.string.status_connecting)
         textConnectionStatus.setTextColor(ContextCompat.getColor(this, R.color.status_connecting))
         cardConnectionStatus.setCardBackgroundColor(
@@ -133,6 +151,8 @@ class MainActivity : AppCompatActivity() {
 
         when (state) {
             is ConnectionState.Connected -> {
+                cardServerWarning.visibility = View.GONE
+
                 // 자격 증명 로컬 저장
                 ServerClient.saveCredentials(this, serverUrl, sharedSecret)
 
@@ -155,18 +175,40 @@ class MainActivity : AppCompatActivity() {
                     getString(R.string.server_info_reservations, state.reservationCount)
             }
             is ConnectionState.Failed -> {
-                textConnectionStatus.text = getString(R.string.status_failed)
-                textConnectionStatus.setTextColor(ContextCompat.getColor(this, R.color.status_error))
-                cardConnectionStatus.setCardBackgroundColor(
-                    ContextCompat.getColor(this, R.color.status_error_bg)
-                )
-                cardConnectionStatus.strokeColor = ContextCompat.getColor(this, R.color.status_error)
-
-                textStatusDetail.visibility = View.VISIBLE
-                textStatusDetail.text = state.message
                 cardServerInfo.visibility = View.GONE
+
+                if (state.error == ConnectionError.UNREACHABLE) {
+                    // 서버 연결 불가 경고 표시 (REQ-025, D-13)
+                    cardServerWarning.visibility = View.VISIBLE
+                    textServerWarningTitle.text = getString(R.string.server_unreachable_warning)
+                    textServerWarningMessage.text = state.message
+
+                    textConnectionStatus.text = getString(R.string.server_unreachable_warning)
+                    textConnectionStatus.setTextColor(ContextCompat.getColor(this, R.color.status_error))
+                    cardConnectionStatus.setCardBackgroundColor(
+                        ContextCompat.getColor(this, R.color.status_error_bg)
+                    )
+                    cardConnectionStatus.strokeColor = ContextCompat.getColor(this, R.color.status_error)
+
+                    textStatusDetail.visibility = View.VISIBLE
+                    textStatusDetail.text = state.message
+                } else {
+                    cardServerWarning.visibility = View.GONE
+
+                    textConnectionStatus.text = getString(R.string.status_failed)
+                    textConnectionStatus.setTextColor(ContextCompat.getColor(this, R.color.status_error))
+                    cardConnectionStatus.setCardBackgroundColor(
+                        ContextCompat.getColor(this, R.color.status_error_bg)
+                    )
+                    cardConnectionStatus.strokeColor = ContextCompat.getColor(this, R.color.status_error)
+
+                    textStatusDetail.visibility = View.VISIBLE
+                    textStatusDetail.text = state.message
+                }
             }
             is ConnectionState.Disconnected -> {
+                cardServerWarning.visibility = View.GONE
+
                 textConnectionStatus.text = getString(R.string.status_disconnected)
                 textConnectionStatus.setTextColor(ContextCompat.getColor(this, R.color.status_disconnected))
                 cardConnectionStatus.setCardBackgroundColor(
@@ -178,6 +220,7 @@ class MainActivity : AppCompatActivity() {
                 cardServerInfo.visibility = View.GONE
             }
             is ConnectionState.Connecting -> {
+                cardServerWarning.visibility = View.GONE
                 setUiConnecting()
             }
         }

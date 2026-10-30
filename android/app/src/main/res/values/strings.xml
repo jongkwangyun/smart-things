@@ -23,6 +23,7 @@
     <string name="error_invalid_url">올바른 URL 형식(http:// 또는 https://)으로 입력해 주세요.</string>
     <string name="error_unauthorized">인증 실패: 공유 비밀키가 올바르지 않습니다. (REQ-024, D-09)</string>
     <string name="error_unreachable">서버에 연결할 수 없습니다. 서버 주소와 네트워크를 확인하세요. (REQ-025)</string>
+    <string name="server_unreachable_warning">서버에 연결할 수 없음</string>
     <string name="error_unknown">알 수 없는 오류가 발생했습니다.</string>
 
     <string name="server_info_title">서버 정보</string>

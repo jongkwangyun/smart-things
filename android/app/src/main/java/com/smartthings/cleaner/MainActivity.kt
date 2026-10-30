@@ -52,6 +52,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var textServerTime: TextView
     private lateinit var textReservationCount: TextView
     private lateinit var btnCreateReservation: Button
+    private lateinit var btnReservationList: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -80,6 +81,7 @@ class MainActivity : AppCompatActivity() {
         textServerTime = findViewById(R.id.textServerTime)
         textReservationCount = findViewById(R.id.textReservationCount)
         btnCreateReservation = findViewById(R.id.btnCreateReservation)
+        btnReservationList = findViewById(R.id.btnReservationList)
 
         btnConnect.setOnClickListener {
             performConnectionCheck()
@@ -87,6 +89,14 @@ class MainActivity : AppCompatActivity() {
 
         btnCreateReservation.setOnClickListener {
             val intent = Intent(this, CreateReservationActivity::class.java).apply {
+                putExtra("EXTRA_SERVER_URL", ServerClient.getSavedServerUrl(this@MainActivity))
+                putExtra("EXTRA_SHARED_SECRET", ServerClient.getSavedSharedSecret(this@MainActivity))
+            }
+            startActivity(intent)
+        }
+
+        btnReservationList.setOnClickListener {
+            val intent = Intent(this, ReservationListActivity::class.java).apply {
                 putExtra("EXTRA_SERVER_URL", ServerClient.getSavedServerUrl(this@MainActivity))
                 putExtra("EXTRA_SHARED_SECRET", ServerClient.getSavedSharedSecret(this@MainActivity))
             }

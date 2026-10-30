@@ -27,6 +27,11 @@
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|uiMode"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name=".ReservationListActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|uiMode"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
     </application>
 
 </manifest>

@@ -241,7 +241,7 @@
     {
       "id": "LB-014",
       "reqs": ["REQ-002"],
-      "status": "todo",
+      "status": "done",
       "priority": "핵심",
       "category": "1회성예약",
       "title": "예약 목록 화면",
@@ -250,9 +250,9 @@
       "parent": null,
       "deps": ["LB-013"],
       "doc": null,
-      "done_at": null,
+      "done_at": "2026-10-30",
       "must": "다섯 가지 상태를 모두 구분해 표시한다.",
-      "memo": null
+      "memo": "[2026-10-30] 검증 완료: 예약 목록 화면(ReservationListActivity.kt, activity_reservation_list.xml, item_reservation.xml), 5가지 상태(예정·성공·실패·취소·누락) 고유 색상/뱃지 구분(must 준수), 예정/지난 예약 분리(done_when 준수), 실패 이유 및 마지막 기기 상태 표시, 서버 연동(GET /api/reservations) 및 새로고침 구현. 단위/통합 테스트 8건(전체 99건) 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인."
     },
     {
       "id": "LB-015",

@@ -30,6 +30,7 @@
     <string name="server_info_service">서비스: %1$s</string>
     <string name="server_info_time">서버 시각(KST): %1$s</string>
     <string name="server_info_reservations">등록된 예약 수: %1$d건</string>
+
     <!-- LB-013 1회성 예약 생성 리소스 -->
     <string name="title_create_reservation">1회성 예약 추가</string>
     <string name="subtitle_create_reservation">청소 날짜와 시각을 선택해 1회성 청소를 예약합니다.</string>
@@ -49,4 +50,22 @@
     <string name="title_guidance">안내</string>
     <string name="btn_ok">확인</string>
     <string name="btn_cancel">취소</string>
+
+    <!-- LB-014 1회성 예약 목록 리소스 -->
+    <string name="title_reservation_list">예약 목록</string>
+    <string name="subtitle_reservation_list">예정된 예약과 지난 예약 내역을 확인합니다.</string>
+    <string name="btn_reservation_list">예약 목록</string>
+    <string name="btn_refresh">새로고침</string>
+    <string name="section_upcoming_reservations">예정된 예약</string>
+    <string name="section_past_reservations">지난 예약</string>
+    <string name="empty_upcoming_reservations">예정된 예약이 없습니다.</string>
+    <string name="empty_past_reservations">지난 예약 내역이 없습니다.</string>
+    <string name="status_name_scheduled">예정</string>
+    <string name="status_name_success">성공</string>
+    <string name="status_name_failed">실패</string>
+    <string name="status_name_cancelled">취소</string>
+    <string name="status_name_missed">누락</string>
+    <string name="label_failure_reason_prefix">실패 이유: </string>
+    <string name="failure_reason_unidentified">원인 미확인</string>
+    <string name="msg_loading_reservations">예약 목록을 불러오는 중…</string>
 </resources>

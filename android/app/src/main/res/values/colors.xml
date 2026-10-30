@@ -21,6 +21,27 @@
     <color name="status_connecting">#F57F17</color>
     <color name="status_connecting_bg">#FFFDE7</color>
 
+    <!-- LB-014: 5대 예약 상태 전용 색상 (MUST: 5가지 상태 구분) -->
+    <color name="status_scheduled">#0D47A1</color>
+    <color name="status_scheduled_bg">#E3F2FD</color>
+    <color name="badge_border_scheduled">#90CAF9</color>
+
+    <color name="status_success">#2E7D32</color>
+    <color name="status_success_bg">#E8F5E9</color>
+    <color name="badge_border_success">#A5D6A7</color>
+
+    <color name="status_failed">#C62828</color>
+    <color name="status_failed_bg">#FFEBEE</color>
+    <color name="badge_border_failed">#EF9A9A</color>
+
+    <color name="status_cancelled">#616161</color>
+    <color name="status_cancelled_bg">#EEEEEE</color>
+    <color name="badge_border_cancelled">#BDBDBD</color>
+
+    <color name="status_missed">#E65100</color>
+    <color name="status_missed_bg">#FFF3E0</color>
+    <color name="badge_border_missed">#FFCC80</color>
+
     <color name="text_primary">#1F2937</color>
     <color name="text_secondary">#6B7280</color>
     <color name="border_color">#E5E7EB</color>

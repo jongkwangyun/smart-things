@@ -248,7 +248,6 @@
                         android:textColor="@color/on_primary"
                         android:textSize="14sp" android:textStyle="bold"
                         app:cornerRadius="8dp" />
-
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnReservationList"
                         style="@style/Widget.MaterialComponents.Button.OutlinedButton"
@@ -258,7 +257,6 @@
                         android:textColor="@color/primary"
                         android:textSize="14sp" android:textStyle="bold"
                         app:cornerRadius="8dp" app:strokeColor="@color/primary" />
-
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnCreateOffPeriod"
                         style="@style/Widget.MaterialComponents.Button.OutlinedButton"
@@ -268,13 +266,21 @@
                         android:textColor="@color/primary"
                         android:textSize="14sp" android:textStyle="bold"
                         app:cornerRadius="8dp" app:strokeColor="@color/primary" />
-
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnOffPeriodList"
                         style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                         android:layout_width="match_parent" android:layout_height="48dp"
                         android:layout_marginTop="8dp"
                         android:text="@string/btn_off_period_list"
+                        android:textColor="@color/primary"
+                        android:textSize="14sp" android:textStyle="bold"
+                        app:cornerRadius="8dp" app:strokeColor="@color/primary" />
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnSendTestNotification"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="match_parent" android:layout_height="48dp"
+                        android:layout_marginTop="8dp"
+                        android:text="@string/btn_send_test_notification"
                         android:textColor="@color/primary"
                         android:textSize="14sp" android:textStyle="bold"
                         app:cornerRadius="8dp" app:strokeColor="@color/primary" />

@@ -18,6 +18,7 @@ class Config:
     shared_secret: str = DEFAULT_SHARED_SECRET
     ssl_cert_path: Path | None = None
     ssl_key_path: Path | None = None
+    firebase_credentials_path: Path | None = None
 
     @classmethod
     def from_env(cls) -> Config:
@@ -41,6 +42,11 @@ class Config:
             or os.environ.get("SMARTTHINGS_SSL_KEY_PATH")
         )
         ssl_key_path = Path(ssl_key_raw) if ssl_key_raw else None
+        firebase_cred_raw = (
+            os.environ.get("FIREBASE_CREDENTIALS_PATH")
+            or os.environ.get("SMART_THINGS_FIREBASE_CREDENTIALS_PATH")
+        )
+        firebase_credentials_path = Path(firebase_cred_raw) if firebase_cred_raw else None
         return cls(
             host=host,
             port=port,
@@ -48,4 +54,5 @@ class Config:
             shared_secret=shared_secret,
             ssl_cert_path=ssl_cert_path,
             ssl_key_path=ssl_key_path,
+            firebase_credentials_path=firebase_credentials_path,
         )

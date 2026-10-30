@@ -193,7 +193,7 @@
     {
       "id": "LB-011",
       "reqs": ["REQ-022"],
-      "status": "todo",
+      "status": "done",
       "priority": "핵심",
       "category": "알림",
       "title": "두 휴대폰으로 FCM 푸시 발송",
@@ -202,9 +202,9 @@
       "parent": null,
       "deps": ["LB-010"],
       "doc": "SPEC.md#decisions",
-      "done_at": null,
+      "done_at": "2026-10-30",
       "must": "모든 알림은 등록된 두 기기 모두에 보낸다 (D-12). Firebase 인증 파일은 커밋하지 않는다.",
-      "memo": null
+      "memo": "[2026-10-30] 검증 완료: FCM 푸시 클라이언트(fcm_client.py, service.py), 두 기기(S21+, Fold8) 동시 발송 멀티캐스트(D-12, REQ-022 준수), 기기 토큰 등록(POST /api/notification-targets) 및 시험 알림 발송(POST /api/notify/test), Firebase 인증 파일 .gitignore 커밋 방지(must 준수), 안드로이드 AppFirebaseMessagingService/시스템 알림창 표출/채널 등록 구현. 단위/통합 테스트 6건(전체 134건) 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인."
     },
     {
       "id": "LB-012",

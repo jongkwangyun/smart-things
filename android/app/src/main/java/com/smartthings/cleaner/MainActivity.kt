@@ -1,6 +1,9 @@
 package com.smartthings.cleaner
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
@@ -8,27 +11,22 @@ import android.widget.EditText
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.card.MaterialCardView
 import com.smartthings.cleaner.model.ConnectionError
 import com.smartthings.cleaner.model.ConnectionState
+import com.smartthings.cleaner.model.SendNotificationResult
 import com.smartthings.cleaner.network.ServerClient
+import com.smartthings.cleaner.notification.AppFirebaseMessagingService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
  * 앱 진입 메인 액티비티.
- *
- * SPEC:
- * - done_when: APK를 갤럭시 S21+에 설치하고 서버 주소·비밀키를 입력하면 첫 화면에 '연결됨'이 표시된다
- * - D-01: APK 직접 설치 방식
- * - D-09: 두 사용자 모두 같은 비밀키를 쓴다
- * - REQ-024: 비인가 접근 차단 (비밀키 검증)
- * - REQ-025: 서버 연결 불가 경고
- * - REQ-028: 갤럭시 S21+ 지원
- * - REQ-029: 갤럭시 폴드8 (접힘/펼침 반응형) 지원
+ * SPEC: D-01, D-09, D-12, D-13, REQ-022, REQ-024, REQ-025, REQ-028, REQ-029.
  */
 class MainActivity : AppCompatActivity() {
 
@@ -55,12 +53,14 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnReservationList: Button
     private lateinit var btnCreateOffPeriod: Button
     private lateinit var btnOffPeriodList: Button
+    private lateinit var btnSendTestNotification: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         initViews()
+        setupNotifications()
         checkConnectionOnLaunch()
     }
 
@@ -86,72 +86,78 @@ class MainActivity : AppCompatActivity() {
         btnReservationList = findViewById(R.id.btnReservationList)
         btnCreateOffPeriod = findViewById(R.id.btnCreateOffPeriod)
         btnOffPeriodList = findViewById(R.id.btnOffPeriodList)
+        btnSendTestNotification = findViewById(R.id.btnSendTestNotification)
 
-        btnConnect.setOnClickListener {
-            performConnectionCheck()
+        btnConnect.setOnClickListener { performConnectionCheck() }
+        btnCreateReservation.setOnClickListener { navigateTo(CreateReservationActivity::class.java) }
+        btnReservationList.setOnClickListener { navigateTo(ReservationListActivity::class.java) }
+        btnCreateOffPeriod.setOnClickListener { navigateTo(CreateOffPeriodActivity::class.java) }
+        btnOffPeriodList.setOnClickListener { navigateTo(OffPeriodListActivity::class.java) }
+        btnSendTestNotification.setOnClickListener { performSendTestNotification() }
+    }
+
+    private fun navigateTo(clazz: Class<*>) {
+        val intent = Intent(this, clazz).apply {
+            putExtra("EXTRA_SERVER_URL", ServerClient.getSavedServerUrl(this@MainActivity))
+            putExtra("EXTRA_SHARED_SECRET", ServerClient.getSavedSharedSecret(this@MainActivity))
         }
+        startActivity(intent)
+    }
 
-        btnCreateReservation.setOnClickListener {
-            val intent = Intent(this, CreateReservationActivity::class.java).apply {
-                putExtra("EXTRA_SERVER_URL", ServerClient.getSavedServerUrl(this@MainActivity))
-                putExtra("EXTRA_SHARED_SECRET", ServerClient.getSavedSharedSecret(this@MainActivity))
+    private fun setupNotifications() {
+        AppFirebaseMessagingService.createNotificationChannel(this)
+        if (Build.VERSION.SDK_INT >= 33) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 101)
             }
-            startActivity(intent)
-        }
-
-        btnReservationList.setOnClickListener {
-            val intent = Intent(this, ReservationListActivity::class.java).apply {
-                putExtra("EXTRA_SERVER_URL", ServerClient.getSavedServerUrl(this@MainActivity))
-                putExtra("EXTRA_SHARED_SECRET", ServerClient.getSavedSharedSecret(this@MainActivity))
-            }
-            startActivity(intent)
-        }
-
-        btnCreateOffPeriod.setOnClickListener {
-            val intent = Intent(this, CreateOffPeriodActivity::class.java).apply {
-                putExtra("EXTRA_SERVER_URL", ServerClient.getSavedServerUrl(this@MainActivity))
-                putExtra("EXTRA_SHARED_SECRET", ServerClient.getSavedSharedSecret(this@MainActivity))
-            }
-            startActivity(intent)
-        }
-
-        btnOffPeriodList.setOnClickListener {
-            val intent = Intent(this, OffPeriodListActivity::class.java).apply {
-                putExtra("EXTRA_SERVER_URL", ServerClient.getSavedServerUrl(this@MainActivity))
-                putExtra("EXTRA_SHARED_SECRET", ServerClient.getSavedSharedSecret(this@MainActivity))
-            }
-            startActivity(intent)
         }
     }
 
-    /**
-     * 앱 실행 시 서버 연결 확인 (D-13: 백그라운드 감시 없음, 앱 실행 시 확인만).
-     */
+    private fun performSendTestNotification() {
+        val serverUrl = ServerClient.getSavedServerUrl(this)
+        val sharedSecret = ServerClient.getSavedSharedSecret(this)
+        if (serverUrl.isEmpty() || sharedSecret.isEmpty()) {
+            textStatusDetail.visibility = View.VISIBLE
+            textStatusDetail.text = getString(R.string.msg_error_server_not_configured)
+            return
+        }
+        btnSendTestNotification.isEnabled = false
+        textStatusDetail.visibility = View.VISIBLE
+        textStatusDetail.text = getString(R.string.msg_sending_test_notification)
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            val result = serverClient.sendTestNotification(
+                serverUrl,
+                sharedSecret,
+                "청소기 시험 알림",
+                "시험 푸시 알림입니다. 갤럭시 S21+와 갤럭시 폴드8 두 대 모두 정상 수신되었습니다."
+            )
+            withContext(Dispatchers.Main) {
+                btnSendTestNotification.isEnabled = true
+                when (result) {
+                    is SendNotificationResult.Success -> {
+                        textStatusDetail.text = getString(R.string.msg_test_notification_success, result.successCount)
+                    }
+                    is SendNotificationResult.Failure -> {
+                        textStatusDetail.text = getString(R.string.msg_test_notification_failed, result.message)
+                    }
+                }
+            }
+        }
+    }
+
+    /** 앱 실행 시 서버 연결 확인 (D-13: 백그라운드 감시 없음, 앱 실행 시 확인만). */
     private fun checkConnectionOnLaunch() {
-        loadSavedCredentials()
-    }
-
-    private fun loadSavedCredentials() {
         val savedUrl = ServerClient.getSavedServerUrl(this)
         val savedSecret = ServerClient.getSavedSharedSecret(this)
-
-        if (savedUrl.isNotEmpty()) {
-            editServerUrl.setText(savedUrl)
-        }
-        if (savedSecret.isNotEmpty()) {
-            editSharedSecret.setText(savedSecret)
-        }
-
-        // 저장된 자격 증명이 있으면 앱 실행 시 즉시 연결 상태 확인 (D-13)
-        if (savedUrl.isNotEmpty() && savedSecret.isNotEmpty()) {
-            performConnectionCheck()
-        }
+        if (savedUrl.isNotEmpty()) editServerUrl.setText(savedUrl)
+        if (savedSecret.isNotEmpty()) editSharedSecret.setText(savedSecret)
+        if (savedUrl.isNotEmpty() && savedSecret.isNotEmpty()) performConnectionCheck()
     }
 
     private fun performConnectionCheck() {
         val serverUrl = editServerUrl.text.toString().trim()
         val sharedSecret = editSharedSecret.text.toString().trim()
-
         setUiConnecting()
 
         lifecycleScope.launch(Dispatchers.IO) {
@@ -166,26 +172,17 @@ class MainActivity : AppCompatActivity() {
         btnConnect.isEnabled = false
         btnConnect.text = getString(R.string.btn_connecting)
         progressBar.visibility = View.VISIBLE
-
         cardServerWarning.visibility = View.GONE
-
         textConnectionStatus.text = getString(R.string.status_connecting)
         textConnectionStatus.setTextColor(ContextCompat.getColor(this, R.color.status_connecting))
-        cardConnectionStatus.setCardBackgroundColor(
-            ContextCompat.getColor(this, R.color.status_connecting_bg)
-        )
+        cardConnectionStatus.setCardBackgroundColor(ContextCompat.getColor(this, R.color.status_connecting_bg))
         cardConnectionStatus.strokeColor = ContextCompat.getColor(this, R.color.status_connecting)
-
         textStatusDetail.visibility = View.VISIBLE
         textStatusDetail.text = getString(R.string.status_connecting)
         cardServerInfo.visibility = View.GONE
     }
 
-    private fun renderConnectionState(
-        state: ConnectionState,
-        serverUrl: String,
-        sharedSecret: String
-    ) {
+    private fun renderConnectionState(state: ConnectionState, serverUrl: String, sharedSecret: String) {
         btnConnect.isEnabled = true
         btnConnect.text = getString(R.string.btn_connect)
         progressBar.visibility = View.GONE
@@ -193,70 +190,41 @@ class MainActivity : AppCompatActivity() {
         when (state) {
             is ConnectionState.Connected -> {
                 cardServerWarning.visibility = View.GONE
-
-                // 자격 증명 로컬 저장
                 ServerClient.saveCredentials(this, serverUrl, sharedSecret)
-
-                // 상태 표시: '연결됨' (done_when 기준)
                 textConnectionStatus.text = getString(R.string.status_connected)
                 textConnectionStatus.setTextColor(ContextCompat.getColor(this, R.color.status_connected))
-                cardConnectionStatus.setCardBackgroundColor(
-                    ContextCompat.getColor(this, R.color.status_connected_bg)
-                )
+                cardConnectionStatus.setCardBackgroundColor(ContextCompat.getColor(this, R.color.status_connected_bg))
                 cardConnectionStatus.strokeColor = ContextCompat.getColor(this, R.color.status_connected)
-
                 textStatusDetail.visibility = View.VISIBLE
                 textStatusDetail.text = "서버(${state.serverUrl})와 정상적으로 통신 중입니다."
-
-                // 서버 정보 카드 표시
                 cardServerInfo.visibility = View.VISIBLE
                 textServiceName.text = getString(R.string.server_info_service, state.serviceName)
                 textServerTime.text = getString(R.string.server_info_time, state.serverTimeKst)
-                textReservationCount.text =
-                    getString(R.string.server_info_reservations, state.reservationCount)
+                textReservationCount.text = getString(R.string.server_info_reservations, state.reservationCount)
             }
             is ConnectionState.Failed -> {
                 cardServerInfo.visibility = View.GONE
-
-                if (state.error == ConnectionError.UNREACHABLE) {
-                    // 서버 연결 불가 경고 표시 (REQ-025, D-13)
-                    cardServerWarning.visibility = View.VISIBLE
+                val isUnreachable = state.error == ConnectionError.UNREACHABLE
+                cardServerWarning.visibility = if (isUnreachable) View.VISIBLE else View.GONE
+                if (isUnreachable) {
                     textServerWarningTitle.text = getString(R.string.server_unreachable_warning)
                     textServerWarningMessage.text = state.message
-
                     textConnectionStatus.text = getString(R.string.server_unreachable_warning)
-                    textConnectionStatus.setTextColor(ContextCompat.getColor(this, R.color.status_error))
-                    cardConnectionStatus.setCardBackgroundColor(
-                        ContextCompat.getColor(this, R.color.status_error_bg)
-                    )
-                    cardConnectionStatus.strokeColor = ContextCompat.getColor(this, R.color.status_error)
-
-                    textStatusDetail.visibility = View.VISIBLE
-                    textStatusDetail.text = state.message
                 } else {
-                    cardServerWarning.visibility = View.GONE
-
                     textConnectionStatus.text = getString(R.string.status_failed)
-                    textConnectionStatus.setTextColor(ContextCompat.getColor(this, R.color.status_error))
-                    cardConnectionStatus.setCardBackgroundColor(
-                        ContextCompat.getColor(this, R.color.status_error_bg)
-                    )
-                    cardConnectionStatus.strokeColor = ContextCompat.getColor(this, R.color.status_error)
-
-                    textStatusDetail.visibility = View.VISIBLE
-                    textStatusDetail.text = state.message
                 }
+                textConnectionStatus.setTextColor(ContextCompat.getColor(this, R.color.status_error))
+                cardConnectionStatus.setCardBackgroundColor(ContextCompat.getColor(this, R.color.status_error_bg))
+                cardConnectionStatus.strokeColor = ContextCompat.getColor(this, R.color.status_error)
+                textStatusDetail.visibility = View.VISIBLE
+                textStatusDetail.text = state.message
             }
             is ConnectionState.Disconnected -> {
                 cardServerWarning.visibility = View.GONE
-
                 textConnectionStatus.text = getString(R.string.status_disconnected)
                 textConnectionStatus.setTextColor(ContextCompat.getColor(this, R.color.status_disconnected))
-                cardConnectionStatus.setCardBackgroundColor(
-                    ContextCompat.getColor(this, R.color.status_disconnected_bg)
-                )
+                cardConnectionStatus.setCardBackgroundColor(ContextCompat.getColor(this, R.color.status_disconnected_bg))
                 cardConnectionStatus.strokeColor = ContextCompat.getColor(this, R.color.border_color)
-
                 textStatusDetail.visibility = View.GONE
                 cardServerInfo.visibility = View.GONE
             }

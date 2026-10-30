@@ -218,8 +218,12 @@ class TestD13NoBackgroundPollingCompliance(unittest.TestCase):
         root = ET.parse(MANIFEST_FILE).getroot()
         ns = {"android": "http://schemas.android.com/apk/res/android"}
 
-        services = root.findall(".//service")
-        self.assertEqual(len(services), 0, "D-13 위반: 백그라운드 서비스가 등록되어 있습니다.")
+        # D-13: 서버 장애 감지용 백그라운드 감시 서비스 등록 금지 (D-12 FCM 푸시 수신 서비스 제외)
+        polling_services = [
+            elem for elem in root.findall(".//service")
+            if "AppFirebaseMessagingService" not in elem.attrib.get(f"{{{ns['android']}}}name", "")
+        ]
+        self.assertEqual(len(polling_services), 0, "D-13 위반: 백그라운드 감시 서비스가 등록되어 있습니다.")
 
         receivers = root.findall(".//receiver")
         self.assertEqual(len(receivers), 0, "D-13 위반: 브로드캐스트 수신기가 등록되어 있습니다.")

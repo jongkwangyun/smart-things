@@ -94,4 +94,11 @@
     <string name="label_off_period_start">시작: %1$s</string>
     <string name="label_off_period_end">종료: %1$s</string>
     <string name="msg_loading_off_periods">쉬는 기간 목록을 불러오는 중…</string>
+    <!-- LB-011 알림(FCM 푸시) 리소스 (D-12, REQ-022) -->
+    <string name="btn_send_test_notification">시험 알림 발송</string>
+    <string name="msg_sending_test_notification">시험 알림 발송 중…</string>
+    <string name="msg_test_notification_success">시험 알림이 발송되었습니다 (%1$d대 전송 완료)</string>
+    <string name="msg_test_notification_failed">시험 알림 발송 실패: %1$s</string>
+    <string name="notification_channel_name">로봇청소기 알림</string>
+    <string name="notification_channel_description">로봇청소기 상태 및 시험 알림 채널 (D-12)</string>
 </resources>

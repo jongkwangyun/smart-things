@@ -9,6 +9,17 @@ from typing import Any
 from server.smartthings.auth import SmartThingsTokenManager
 from server.time_utils import format_kst, now_kst
 
+SUPPORTED_OPERATING_STATES: list[str] = [
+    "homing", "charging", "charged", "chargingForRemainingJob", "moving",
+    "cleaning", "paused", "idle", "error", "powerSaving", "factoryReset",
+    "relocal", "exploring", "patrol", "monitoring", "manual", "processing",
+    "messaging", "emitDust", "findingPet", "calibrating", "welcoming",
+    "monitoringAutomation", "washingMop", "sterilizingMop", "dryingMop",
+    "supplyingWater", "preparingWater", "spinDrying", "flexCharged",
+    "mopWashingPaused", "descaling", "drainingWater", "waitingForDescaling",
+    "sabbath",
+]
+
 
 class SmartThingsError(Exception):
     """스마트싱스 연동 기본 예외."""
@@ -120,23 +131,78 @@ class SmartThingsClient:
         token = self.token_manager.get_token()
         return self._request_json(f"{self.base_url}/devices/{device_id}", token)
 
-    def _request_json(self, url: str, token: str) -> dict[str, Any]:
-        req = urllib.request.Request(
-            url,
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Accept": "application/json",
-            },
-            method="GET",
-        )
+    def execute_commands(self, device_id: str, commands: list[dict[str, Any]]) -> dict[str, Any]:
+        """기기 명령(/v1/devices/{device_id}/commands)을 전송한다.
+
+        401 Unauthorized 발생 시 자동으로 토큰을 갱신하고 1회 재시도한다.
+        """
+        if self.simulated:
+            self.token_manager.logger.info(
+                "기기 명령 전송 성공 (시뮬레이션 모드): device_id=%s, commands=%s", device_id, commands
+            )
+            return {"results": [{"id": "simulated-cmd-id", "status": "COMPLETED"}]}
+
+        url = f"{self.base_url}/devices/{device_id}/commands"
+        payload = {"commands": commands}
+        token = self.token_manager.get_token()
+
+        try:
+            res = self._request_json(url, token, method="POST", payload=payload)
+            self.token_manager.logger.info("기기 명령 전송 성공 (실제 API): device_id=%s", device_id)
+            return res
+        except SmartThingsAuthError:
+            self.token_manager.logger.warning("401 Unauthorized 발생. 토큰 갱신 후 명령 1회 재시도합니다.")
+            self.token_manager.refresh(reason="401_unauthorized")
+            new_token = self.token_manager.get_token()
+            res = self._request_json(url, new_token, method="POST", payload=payload)
+            self.token_manager.logger.info("재시도 후 기기 명령 전송 성공: device_id=%s", device_id)
+            return res
+
+    def start_cleaning(self, device_id: str) -> dict[str, Any]:
+        """청소 시작 명령을 전송한다 (samsungce.robotCleanerOperatingState: start)."""
+        cmd = [{
+            "component": "main",
+            "capability": "samsungce.robotCleanerOperatingState",
+            "command": "start",
+            "arguments": [],
+        }]
+        return self.execute_commands(device_id, cmd)
+
+    def return_to_home(self, device_id: str) -> dict[str, Any]:
+        """청소 중단 및 충전 스테이션 복귀 명령을 전송한다 (samsungce.robotCleanerOperatingState: returnToHome)."""
+        cmd = [{
+            "component": "main",
+            "capability": "samsungce.robotCleanerOperatingState",
+            "command": "returnToHome",
+            "arguments": [],
+        }]
+        return self.execute_commands(device_id, cmd)
+
+    def stop_cleaning(self, device_id: str) -> dict[str, Any]:
+        """청소 정지/복귀 명령 (return_to_home 호출)."""
+        return self.return_to_home(device_id)
+
+    def _request_json(
+        self,
+        url: str,
+        token: str,
+        method: str = "GET",
+        payload: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+        body: bytes | None = None
+        if payload is not None:
+            headers["Content-Type"] = "application/json"
+            body = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(url, data=body, headers=headers, method=method)
         try:
             with urllib.request.urlopen(req, timeout=10) as resp:
                 return json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
             if e.code == 401:
                 raise SmartThingsAuthError(f"스마트싱스 인증 실패 (HTTP 401): {e.reason}") from e
-            body = e.read().decode("utf-8", errors="replace")
-            raise SmartThingsApiError(f"스마트싱스 API 오류 (HTTP {e.code}): {body}") from e
+            body_text = e.read().decode("utf-8", errors="replace")
+            raise SmartThingsApiError(f"스마트싱스 API 오류 (HTTP {e.code}): {body_text}") from e
         except urllib.error.URLError as e:
             raise SmartThingsApiError(f"스마트싱스 네트워크 연결 실패: {e.reason}") from e
         except Exception as e:

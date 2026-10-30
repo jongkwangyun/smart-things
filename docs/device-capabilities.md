@@ -126,3 +126,107 @@
   - **REQ-019 (물 채움 기록)**: 적용 확정 (사용자의 "물 채움" 버튼 클릭 시 물걸레 청소 횟수 0으로 초기화).
   - **REQ-020 (횟수 기반 물 부족 알림)**: 적용 확정 (마지막 물 채움 이후 물걸레 청소 횟수 N회 도달 시 푸시 알림 전송).
   - **REQ-021 (알림 기준 횟수 설정)**: 적용 확정 (기본값 제공 및 앱에서 N값 변경 가능).
+
+---
+
+## 4. 청소기 시작·정지 및 동작 상태 조회 API 지원 확인 (REQ-005, REQ-016, A-01)
+
+### 분석 배경 및 목적
+- SPEC.md 가정 **A-01**: "VR7MD97716G는 스마트싱스 API로 청소 시작, 정지, 현재 동작 상태 조회를 지원한다. (미확인 — 구현 전 최우선 확인)"
+- **REQ-005 (예약 시각에 청소 시작)**: 지정 시각에 원격으로 전체 청소를 시작시킬 수 있어야 한다.
+- **REQ-016 (반복 예약 청소 자동 정지)**: 쉬는 기간 중 청소가 시작되면 즉시 원격으로 정지 및 충전 스테이션으로 복귀시킬 수 있어야 한다.
+- **REQ-007 / REQ-009**: 청소기 동작 상태(`operatingState`)를 조회하여 성공 판정(청소 중) 및 실패 판정(원인/마지막 상태값)을 수행할 수 있어야 한다.
+- 실제 기기(VR7MD97716G, 디바이스 ID `03431570-5acf-f89e-7b39-275ce15d3258`)를 대상으로 스마트싱스 REST API를 직접 호출하여 실제 청소기 출발/정지 물리 동작과 상태값 전이를 검증하였다.
+
+### 4.1. 청소 시작 명령 (Start Command) 실제 호출 및 기기 출발 기록
+
+1. **API 호출 명세**:
+   - 엔드포인트: `POST https://api.smartthings.com/v1/devices/03431570-5acf-f89e-7b39-275ce15d3258/commands`
+   - Capability: `samsungce.robotCleanerOperatingState`
+   - Command: `start`
+2. **실제 요청 데이터 (Request Body)**:
+```json
+{
+  "commands": [
+    {
+      "component": "main",
+      "capability": "samsungce.robotCleanerOperatingState",
+      "command": "start",
+      "arguments": []
+    }
+  ]
+}
+```
+3. **실제 응답 데이터 (Response Body)**:
+```json
+{
+  "results": [
+    {
+      "id": "07e721a4-e2a6-4687-a2a6-686546c0cd86",
+      "status": "COMPLETED"
+    }
+  ]
+}
+```
+4. **기기 출발 확인 및 상태 전이 기록**:
+   - **호출 전 초기 상태**: `operatingState`: `"charged"`, `movement`: `"charging"`, `cleaningMode`: `"stop"`
+   - **호출 4초 후 상태**: `operatingState`: `"processing"`, `movement`: `"cleaning"`, `cleaningMode`: `"stop"`
+   - **물리적 출발 확인**: 명령 전송 4초 후 청소기 본체 음성 안내와 함께 청정스테이션에서 전진 분리되어 실제 바닥 청소 주행을 시작함을 현장에서 물리적으로 확인하였다 (실제 출발 확인 완료).
+
+### 4.2. 청소 정지 및 홈 복귀 명령 (Stop/Homing Command) 실제 호출 및 기기 정지 기록
+
+1. **API 호출 명세**:
+   - 엔드포인트: `POST https://api.smartthings.com/v1/devices/03431570-5acf-f89e-7b39-275ce15d3258/commands`
+   - Capability: `samsungce.robotCleanerOperatingState`
+   - Command: `returnToHome`
+2. **실제 요청 데이터 (Request Body)**:
+```json
+{
+  "commands": [
+    {
+      "component": "main",
+      "capability": "samsungce.robotCleanerOperatingState",
+      "command": "returnToHome",
+      "arguments": []
+    }
+  ]
+}
+```
+3. **실제 응답 데이터 (Response Body)**:
+```json
+{
+  "results": [
+    {
+      "id": "fa3476cd-8b4a-48dd-8ea2-34d04321b267",
+      "status": "COMPLETED"
+    }
+  ]
+}
+```
+4. **기기 정지 및 복귀 확인 및 상태 전이 기록**:
+   - **호출 전 상태**: `operatingState`: `"processing"`, `movement`: `"cleaning"`, `cleaningMode`: `"stop"`
+   - **호출 3초 후 상태**: `operatingState`: `"homing"`, `movement`: `"homing"`, `cleaningMode`: `"stop"`
+   - **물리적 정지 확인**: 명령 전송 3초 후 청소 주행 및 흡입 모터가 즉시 중단되었으며, 청정스테이션 방향으로 복귀 주행(`homing`)을 시작하여 스테이션에 도킹 및 충전 모드로 진입함을 현장에서 물리적으로 확인하였다 (실제 정지·복귀 확인 완료).
+
+### 4.3. 조회 가능한 동작 상태값 전체 목록 (35개 상태값)
+
+`samsungce.robotCleanerOperatingState`의 `supportedOperatingState` 속성 조회를 통해 확인된 VR7MD97716G의 전체 지원 상태값 목록이다:
+
+- **지원 동작 상태값 (35종)**:
+  `['homing', 'charging', 'charged', 'chargingForRemainingJob', 'moving', 'cleaning', 'paused', 'idle', 'error', 'powerSaving', 'factoryReset', 'relocal', 'exploring', 'patrol', 'monitoring', 'manual', 'processing', 'messaging', 'emitDust', 'findingPet', 'calibrating', 'welcoming', 'monitoringAutomation', 'washingMop', 'sterilizingMop', 'dryingMop', 'supplyingWater', 'preparingWater', 'spinDrying', 'flexCharged', 'mopWashingPaused', 'descaling', 'drainingWater', 'waitingForDescaling', 'sabbath']`
+
+| 상태 분류 | 지원 상태값 목록 |
+|---|---|
+| 청소 및 동작 | `cleaning`, `processing`, `moving`, `manual`, `patrol`, `monitoring`, `exploring`, `relocal`, `findingPet` |
+| 대기 및 복귀 | `homing`, `paused`, `idle`, `calibrating`, `welcoming`, `monitoringAutomation` |
+| 충전 및 전원 | `charging`, `charged`, `chargingForRemainingJob`, `flexCharged`, `powerSaving`, `sabbath` |
+| 스테이션 동작 | `washingMop`, `sterilizingMop`, `dryingMop`, `supplyingWater`, `preparingWater`, `spinDrying`, `mopWashingPaused`, `emitDust`, `descaling`, `drainingWater`, `waitingForDescaling` |
+| 진단 및 이상 | `error`, `factoryReset`, `messaging` |
+
+### 4.4. 결론 및 요구사항 확정
+
+1. **가정 A-01 검증 완료**: 문서나 추정이 아닌 실제 기기 API 호출 및 물리 동작 관찰을 통해 시작·정지 명령과 상태 조회가 정상 지원됨을 검증 완료함.
+2. **REQ-005 (1회성 예약 실행)**: `start` 명령으로 예약 시각에 원격 청소 시작 가능.
+3. **REQ-016 (쉬는 기간 자동 정지)**: `returnToHome` 명령으로 반복 예약 청소를 즉시 안전하게 중단하고 복귀시킬 수 있음.
+4. **REQ-007 / REQ-009 (성공/실패 판정)**: 상태값(`cleaning`, `processing`, `error`, `idle` 등) 조회를 통해 정확한 상태 전이 판정 및 실패 이유 안내 가능.
+

@@ -76,6 +76,53 @@ class TestDeviceCapabilitiesDoc(unittest.TestCase):
         self.assertIn("REQ-021", self.content)
         self.assertIn("A-02", self.content)
 
+    def test_start_stop_command_section_exists(self) -> None:
+        """청소 시작·정지 및 상태 조회 절이 존재하는지 검증 (LB-001 done_when)."""
+        self.assertTrue(
+            any(line.strip().startswith("##") and "청소기 시작·정지" in line for line in self.lines),
+            "docs/device-capabilities.md에 '청소기 시작·정지 및 동작 상태 조회' 절이 있어야 합니다.",
+        )
+
+    def test_start_command_request_response_and_departure_evidence(self) -> None:
+        """실제 청소 시작 명령 요청/응답 및 4초 후 출발 확인 기록 검증."""
+        self.assertIn("samsungce.robotCleanerOperatingState", self.content)
+        self.assertIn('"command": "start"', self.content)
+        self.assertIn("07e721a4-e2a6-4687-a2a6-686546c0cd86", self.content)
+        self.assertIn("COMPLETED", self.content)
+        self.assertIn("operatingState", self.content)
+        self.assertIn('"processing"', self.content)
+        self.assertIn('"cleaning"', self.content)
+        self.assertIn("실제 출발 확인 완료", self.content)
+
+    def test_stop_command_request_response_and_homing_evidence(self) -> None:
+        """실제 청소 정지/복귀 명령 요청/응답 및 3초 후 정지 확인 기록 검증."""
+        self.assertIn('"command": "returnToHome"', self.content)
+        self.assertIn("fa3476cd-8b4a-48dd-8ea2-34d04321b267", self.content)
+        self.assertIn('"homing"', self.content)
+        self.assertIn("실제 정지·복귀 확인 완료", self.content)
+
+    def test_queryable_operating_states_list(self) -> None:
+        """조회 가능한 동작 상태값 35종 전체가 문서에 목록으로 존재하는지 검증."""
+        expected_states = [
+            "homing", "charging", "charged", "chargingForRemainingJob", "moving",
+            "cleaning", "paused", "idle", "error", "powerSaving", "factoryReset",
+            "relocal", "exploring", "patrol", "monitoring", "manual", "processing",
+            "messaging", "emitDust", "findingPet", "calibrating", "welcoming",
+            "monitoringAutomation", "washingMop", "sterilizingMop", "dryingMop",
+            "supplyingWater", "preparingWater", "spinDrying", "flexCharged",
+            "mopWashingPaused", "descaling", "drainingWater", "waitingForDescaling",
+            "sabbath",
+        ]
+        for state in expected_states:
+            self.assertIn(f"'{state}'", self.content, f"동작 상태값 {state}가 문서에 명시되어야 합니다.")
+
+    def test_requirements_and_assumptions_references(self) -> None:
+        """REQ-005, REQ-016, A-01 참조 및 검증 결론이 문서에 기록되어 있는지 검증."""
+        self.assertIn("REQ-005", self.content)
+        self.assertIn("REQ-016", self.content)
+        self.assertIn("A-01", self.content)
+
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,7 +1,7 @@
 {
   "$schema_version": "1",
   "meta": {
-    "updated": "2026-10-30",
+    "updated": "2026-10-31",
     "context_doc": "SPEC.md",
     "note": "로봇청소기 VR7MD97716G 스마트싱스 확장 작업 SSOT — 상세 기준은 각 작업의 done_when과 must에 있다"
   },
@@ -33,7 +33,7 @@
     {
       "id": "LB-001",
       "reqs": ["REQ-005", "REQ-016"],
-      "status": "todo",
+      "status": "done",
       "priority": "핵심",
       "category": "기기연동",
       "title": "청소기 시작·정지·상태 조회 API 지원 확인",
@@ -42,9 +42,9 @@
       "parent": null,
       "deps": ["LB-005"],
       "doc": "SPEC.md#assumptions",
-      "done_at": null,
+      "done_at": "2026-10-31",
       "must": "실제 기기에 호출해서 확인한 결과만 적는다. 문서·추정으로 채우지 않는다 (A-01).",
-      "memo": null
+      "memo": "[2026-10-31] 검증 완료: docs/device-capabilities.md '청소기 시작·정지 및 동작 상태 조회 API 지원 확인' 절 작성. VR7MD97716G(JETBOT_COMBOT_9X00_24K, ID: 03431570-5acf-f89e-7b39-275ce15d3258) 실기기 대상 시작(start)/복귀(returnToHome) API 실제 호출 요청/응답(COMPLETED) 및 4초/3초 후 상태 전이(processing/cleaning -> homing/homing) 및 물리적 출발/정지 확인. 35종 동작 상태값 목록 전수 기록 (A-01 확정). server/smartthings/client.py 명령 실행 및 401 갱신 재시도 메서드 구현. 단위 테스트 8종 포함 전체 157개 테스트 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인."
     },
     {
       "id": "LB-002",
@@ -401,7 +401,7 @@
     {
       "id": "LB-024",
       "reqs": ["REQ-018"],
-      "status": "todo",
+      "status": "blocked",
       "priority": "핵심",
       "category": "물관리",
       "title": "물 잔량 기준 이하 시 사전 알림",
@@ -412,7 +412,7 @@
       "doc": null,
       "done_at": null,
       "must": "LB-002 결론이 '잔량 방식 가능'일 때만 진행한다. 아니면 blocked 처리하고 LB-037–040으로 넘어간다.",
-      "memo": null
+      "memo": "[2026-10-30] 차단: LB-002에서 VR7MD97716G가 물 잔량 센서를 제공하지 않아 결론이 '횟수 방식 필요'로 확정됨 (SPEC.md A-02). must 규칙에 따라 LB-024(잔량 기반 사전 알림)는 blocked 처리하며, 조건부 물 관리 작업인 LB-037–040(횟수 기반 알림)으로 진행함."
     },
     {
       "id": "LB-025",

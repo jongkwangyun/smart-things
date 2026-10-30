@@ -49,7 +49,7 @@
     {
       "id": "LB-002",
       "reqs": ["REQ-018"],
-      "status": "todo",
+      "status": "done",
       "priority": "핵심",
       "category": "기기연동",
       "title": "물 잔량 정보 제공 여부 확인",
@@ -58,9 +58,9 @@
       "parent": null,
       "deps": ["LB-005"],
       "doc": "SPEC.md#assumptions",
-      "done_at": null,
+      "done_at": "2026-10-30",
       "must": "결론이 REQ-018 진행 또는 REQ-019–021(조건부) 착수를 결정하므로 근거 응답을 그대로 남긴다 (A-02).",
-      "memo": null
+      "memo": "[2026-10-30] 검증 완료: docs/device-capabilities.md '물 잔량' 절 작성. VR7MD97716G 실기기 API 상태 조회 결과 물통 잔량 센서 부재 확인(samsungce.robotCleanerWaterSprayLevel 분사 강도만 지원) 및 '횟수 방식 필요' 결론 명시. REQ-018 불가 판정 및 조건부 REQ-019~021(LB-037~040) 적용 확정. 단위 테스트 5종 포함 전체 149개 테스트 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인."
     },
     {
       "id": "LB-003",

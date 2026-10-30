@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import ssl
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -38,9 +39,8 @@ class MiniPCHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
-        if headers:
-            for k, v in headers.items():
-                self.send_header(k, v)
+        for k, v in (headers or {}).items():
+            self.send_header(k, v)
         self.end_headers()
         self.wfile.write(body)
 
@@ -51,8 +51,7 @@ class MiniPCHandler(BaseHTTPRequestHandler):
         if is_health_check_path(path):
             return True
         provided = extract_secret_from_headers(self.headers)
-        expected = self.server.config.shared_secret
-        if verify_shared_secret(provided, expected):
+        if verify_shared_secret(provided, self.server.config.shared_secret):
             return True
         self._send_error_json(
             HTTPStatus.UNAUTHORIZED,
@@ -74,14 +73,14 @@ class MiniPCHandler(BaseHTTPRequestHandler):
             return None
 
     def log_message(self, format: str, *args: Any) -> None:
-        # 조용한 테스트/실행을 위해 기본 로깅 생략 (필요시 커스텀 로거 연결)
         pass
 
+    def _clean_path(self) -> str:
+        path = urlparse(self.path).path.rstrip("/")
+        return path if path else "/"
+
     def do_GET(self) -> None:
-        parsed = urlparse(self.path)
-        path = parsed.path.rstrip("/")
-        if not path:
-            path = "/"
+        path = self._clean_path()
 
         # 상태 확인 주소
         if is_health_check_path(path):
@@ -106,12 +105,12 @@ class MiniPCHandler(BaseHTTPRequestHandler):
             return
 
         if path.startswith("/api/reservations/"):
-            res_id = path.split("/api/reservations/")[1]
+            res_id = path.removeprefix("/api/reservations/")
             res = storage.get_reservation(res_id)
             if not res:
                 self._send_error_json(HTTPStatus.NOT_FOUND, f"Reservation {res_id} not found")
-                return
-            self._send_json(HTTPStatus.OK, res.to_dict())
+            else:
+                self._send_json(HTTPStatus.OK, res.to_dict())
             return
 
         if path == "/api/off-periods":
@@ -120,12 +119,12 @@ class MiniPCHandler(BaseHTTPRequestHandler):
             return
 
         if path.startswith("/api/off-periods/"):
-            op_id = path.split("/api/off-periods/")[1]
+            op_id = path.removeprefix("/api/off-periods/")
             op = storage.get_off_period(op_id)
             if not op:
                 self._send_error_json(HTTPStatus.NOT_FOUND, f"OffPeriod {op_id} not found")
-                return
-            self._send_json(HTTPStatus.OK, op.to_dict())
+            else:
+                self._send_json(HTTPStatus.OK, op.to_dict())
             return
 
         if path == "/api/auto-stop-events":
@@ -146,10 +145,7 @@ class MiniPCHandler(BaseHTTPRequestHandler):
         self._send_error_json(HTTPStatus.NOT_FOUND, f"Path {path} not found")
 
     def do_POST(self) -> None:
-        parsed = urlparse(self.path)
-        path = parsed.path.rstrip("/")
-        if not path:
-            path = "/"
+        path = self._clean_path()
 
         if not self._authenticate(path):
             return
@@ -197,21 +193,16 @@ class MiniPCHandler(BaseHTTPRequestHandler):
                 return
         except ReservationValidationError as err:
             self._send_error_json(HTTPStatus.BAD_REQUEST, str(err))
-            return
         except ReservationConflictError as err:
             self._send_error_json(HTTPStatus.CONFLICT, str(err))
-            return
         except (KeyError, ValueError) as err:
             self._send_error_json(HTTPStatus.BAD_REQUEST, f"Invalid model payload: {err}")
-            return
+        return
 
         self._send_error_json(HTTPStatus.NOT_FOUND, f"Path {path} not found")
 
     def do_DELETE(self) -> None:
-        parsed = urlparse(self.path)
-        path = parsed.path.rstrip("/")
-        if not path:
-            path = "/"
+        path = self._clean_path()
 
         if not self._authenticate(path):
             return
@@ -219,30 +210,27 @@ class MiniPCHandler(BaseHTTPRequestHandler):
         storage = self.server.storage
 
         if path.startswith("/api/reservations/"):
-            res_id = path.split("/api/reservations/")[1]
-            deleted = storage.delete_reservation(res_id)
-            if not deleted:
+            res_id = path.removeprefix("/api/reservations/")
+            if not storage.delete_reservation(res_id):
                 self._send_error_json(HTTPStatus.NOT_FOUND, f"Reservation {res_id} not found")
-                return
-            self._send_json(HTTPStatus.OK, {"deleted": True, "id": res_id})
+            else:
+                self._send_json(HTTPStatus.OK, {"deleted": True, "id": res_id})
             return
 
         if path.startswith("/api/off-periods/"):
-            op_id = path.split("/api/off-periods/")[1]
-            deleted = storage.delete_off_period(op_id)
-            if not deleted:
+            op_id = path.removeprefix("/api/off-periods/")
+            if not storage.delete_off_period(op_id):
                 self._send_error_json(HTTPStatus.NOT_FOUND, f"OffPeriod {op_id} not found")
-                return
-            self._send_json(HTTPStatus.OK, {"deleted": True, "id": op_id})
+            else:
+                self._send_json(HTTPStatus.OK, {"deleted": True, "id": op_id})
             return
 
         if path.startswith("/api/notification-targets/"):
-            device_id = path.split("/api/notification-targets/")[1]
-            deleted = storage.delete_notification_target(device_id)
-            if not deleted:
+            device_id = path.removeprefix("/api/notification-targets/")
+            if not storage.delete_notification_target(device_id):
                 self._send_error_json(HTTPStatus.NOT_FOUND, f"Device {device_id} not found")
-                return
-            self._send_json(HTTPStatus.OK, {"deleted": True, "device_id": device_id})
+            else:
+                self._send_json(HTTPStatus.OK, {"deleted": True, "device_id": device_id})
             return
 
         self._send_error_json(HTTPStatus.NOT_FOUND, f"Path {path} not found")
@@ -254,7 +242,23 @@ class MiniPCServer(ThreadingHTTPServer):
     def __init__(self, config: Config, storage: Storage | None = None) -> None:
         self.config = config
         self.storage = storage or Storage(config.db_path)
+        self.ssl_context: ssl.SSLContext | None = None
         super().__init__((config.host, config.port), MiniPCHandler)
+        try:
+            if bool(config.ssl_cert_path) != bool(config.ssl_key_path):
+                raise ValueError("Both ssl_cert_path and ssl_key_path must be provided for TLS mode")
+            if config.ssl_cert_path and config.ssl_key_path:
+                ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+                ctx.load_cert_chain(certfile=str(config.ssl_cert_path), keyfile=str(config.ssl_key_path))
+                self.socket = ctx.wrap_socket(self.socket, server_side=True)
+                self.ssl_context = ctx
+        except Exception:
+            self.close()
+            raise
+
+    @property
+    def is_tls(self) -> bool:
+        return self.ssl_context is not None
 
     def close(self) -> None:
         self.server_close()
@@ -265,21 +269,26 @@ def create_server(
     config: Config | None = None,
     db_path: Path | str | None = None,
     shared_secret: str | None = None,
+    ssl_cert_path: Path | str | None = None,
+    ssl_key_path: Path | str | None = None,
 ) -> MiniPCServer:
     cfg = config or Config.from_env()
     if db_path is not None:
         cfg.db_path = Path(db_path)
     if shared_secret is not None:
         cfg.shared_secret = shared_secret
+    if ssl_cert_path is not None:
+        cfg.ssl_cert_path = Path(ssl_cert_path)
+    if ssl_key_path is not None:
+        cfg.ssl_key_path = Path(ssl_key_path)
     return MiniPCServer(cfg)
 
 
 def run_server(config: Config | None = None) -> None:
     srv = create_server(config)
-    addr = srv.server_address
-    host_str = str(addr[0])
-    port_int = int(addr[1])
-    print(f"미니PC 서버 시작: http://{host_str}:{port_int} (DB: {srv.config.db_path})")
+    host, port = str(srv.server_address[0]), int(srv.server_address[1])
+    scheme = "https" if srv.is_tls else "http"
+    print(f"미니PC 서버 시작: {scheme}://{host}:{port} (DB: {srv.config.db_path})")
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

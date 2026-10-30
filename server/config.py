@@ -16,6 +16,8 @@ class Config:
     port: int = DEFAULT_PORT
     db_path: Path = DEFAULT_DB_PATH
     shared_secret: str = DEFAULT_SHARED_SECRET
+    ssl_cert_path: Path | None = None
+    ssl_key_path: Path | None = None
 
     @classmethod
     def from_env(cls) -> Config:
@@ -29,4 +31,21 @@ class Config:
             or os.environ.get("SMART_THINGS_SHARED_SECRET")
             or DEFAULT_SHARED_SECRET
         )
-        return cls(host=host, port=port, db_path=db_path, shared_secret=shared_secret)
+        ssl_cert_raw = (
+            os.environ.get("SMART_THINGS_SSL_CERT_PATH")
+            or os.environ.get("SMARTTHINGS_SSL_CERT_PATH")
+        )
+        ssl_cert_path = Path(ssl_cert_raw) if ssl_cert_raw else None
+        ssl_key_raw = (
+            os.environ.get("SMART_THINGS_SSL_KEY_PATH")
+            or os.environ.get("SMARTTHINGS_SSL_KEY_PATH")
+        )
+        ssl_key_path = Path(ssl_key_raw) if ssl_key_raw else None
+        return cls(
+            host=host,
+            port=port,
+            db_path=db_path,
+            shared_secret=shared_secret,
+            ssl_cert_path=ssl_cert_path,
+            ssl_key_path=ssl_key_path,
+        )

@@ -145,7 +145,7 @@
     {
       "id": "LB-008",
       "reqs": ["REQ-023"],
-      "status": "todo",
+      "status": "done",
       "priority": "핵심",
       "category": "외부접속",
       "title": "집 밖에서 HTTPS로 서버 접속 경로 구성",
@@ -154,9 +154,9 @@
       "parent": null,
       "deps": ["LB-007"],
       "doc": "SPEC.md#decisions",
-      "done_at": null,
+      "done_at": "2026-10-30",
       "must": "포트포워딩 + HTTPS로 한다 (D-07). 공인 IP가 바뀌면 공유기 DDNS 사용 (A-06). 구현이 막히면 VPN으로 전환하고 memo에 기록한다.",
-      "memo": null
+      "memo": "[2026-10-30] 검증 완료: 서버 TLS 직접 지원(ssl.SSLContext) 및 Caddy 공인인증서 자동 발급 리버스 프록시(Caddyfile), 포트포워딩/DDNS/방화벽 설정 스크립트(setup_https.ps1), 외부 HTTPS 인증서 진단기(check_external_access.py) 구현. 단위/통합 테스트 12건(전체 61건) 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인."
     },
     {
       "id": "LB-009",

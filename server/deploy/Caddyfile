@@ -1,0 +1,43 @@
+# Caddyfile — 스마트싱스 미니PC 서버 HTTPS 역방향 프록시 (Reverse Proxy)
+#
+# [자동 HTTPS 및 모바일 브라우저 신뢰]
+# Caddy는 Let's Encrypt 및 ZeroSSL로부터 공인 신뢰 인증서를 자동으로 발급받고
+# 갱신합니다. 모바일 브라우저(Galaxy S21+, Galaxy Fold 8 등)에서 접속 시
+# 인증서 경고(보안 경고) 없이 바로 열립니다.
+#
+# [포트포워딩 설정 (D-07)]
+# 공유기 관리자 화면에서 다음 포트를 미니PC의 내부 IP로 포트포워딩합니다:
+# - 외부 443 (TCP) -> 미니PC 443 (HTTPS)
+# - 외부 80 (TCP)  -> 미니PC 80  (Let's Encrypt HTTP-01 인증 챌린지 및 HTTPS 리다이렉트용)
+#
+# [DDNS 도메인 설정 (A-06)]
+# 환경변수 SMART_THINGS_DOMAIN 또는 아래 도메인명을 본인의 공유기 DDNS 도메인으로 설정합니다.
+# 예: export SMART_THINGS_DOMAIN=myhome.iptime.org
+
+{$SMART_THINGS_DOMAIN:myhome.iptime.org} {
+    # HTTP 요청은 443(HTTPS)으로 자동 리다이렉트됩니다.
+
+    # 미니PC 로컬 스마트싱스 서버(port 8080)로 역방향 프록시
+    reverse_proxy 127.0.0.1:8080 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto https
+    }
+
+    # 보안 헤더
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+
+    # 접근 로그 (선택적)
+    log {
+        output file server/data/caddy_access.log {
+            roll_size 10mb
+            roll_keep 3
+        }
+    }
+}

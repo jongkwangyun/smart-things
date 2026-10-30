@@ -1,7 +1,7 @@
 {
   "$schema_version": "1",
   "meta": {
-    "updated": "2026-10-29",
+    "updated": "2026-10-30",
     "context_doc": "SPEC.md",
     "note": "로봇청소기 VR7MD97716G 스마트싱스 확장 작업 SSOT — 상세 기준은 각 작업의 done_when과 must에 있다"
   },
@@ -129,7 +129,7 @@
     {
       "id": "LB-007",
       "reqs": ["REQ-026"],
-      "status": "todo",
+      "status": "done",
       "priority": "핵심",
       "category": "서버기반",
       "title": "미니PC 재부팅 시 서버 자동 시작",
@@ -138,9 +138,9 @@
       "parent": null,
       "deps": ["LB-006"],
       "doc": null,
-      "done_at": null,
+      "done_at": "2026-10-30",
       "must": "사람의 수동 조작 없이 복구되어야 한다.",
-      "memo": null
+      "memo": "[2026-10-30] 검증 완료: Windows 작업 스케줄러 XML(BootTrigger, SYSTEM 계정 S-1-5-18, HighestAvailable, PT0S, RestartOnFailure 3회) 및 등록/해제 PowerShell 스크립트, verify_autostart 검증기 구현. 단위/통합 테스트 10건(전체 49건) 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인."
     },
     {
       "id": "LB-008",

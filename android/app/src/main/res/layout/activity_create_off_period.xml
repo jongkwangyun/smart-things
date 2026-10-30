@@ -1,0 +1,274 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/scrollViewOffPeriod"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@color/background" android:fillViewport="true">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:padding="20dp">
+
+        <LinearLayout
+            android:id="@+id/contentLayout"
+            android:layout_width="0dp" android:layout_height="wrap_content"
+            android:orientation="vertical"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.2"
+            app:layout_constraintWidth_max="640dp">
+
+            <!-- Title & Subtitle Header -->
+            <TextView
+                android:id="@+id/textTitle"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="@string/title_create_off_period"
+                android:textColor="@color/primary" android:textSize="22sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/textSubtitle"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/subtitle_create_off_period"
+                android:textColor="@color/text_secondary" android:textSize="13sp" />
+
+            <!-- Start DateTime Selection Card -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardStartDateSelection"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                app:cardBackgroundColor="@color/surface" app:cardCornerRadius="12dp"
+                app:cardElevation="2dp">
+                <LinearLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical" android:padding="16dp">
+
+                    <TextView
+                        android:id="@+id/labelSelectStart"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="@string/label_select_start"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp" android:textStyle="bold" />
+
+                    <!-- Start Date Row -->
+                    <LinearLayout
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp" android:gravity="center_vertical"
+                        android:orientation="horizontal">
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnPickStartDate"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="wrap_content" android:layout_height="44dp"
+                            android:text="@string/btn_pick_date" android:textColor="@color/primary"
+                            app:cornerRadius="8dp" app:strokeColor="@color/primary" />
+                        <TextView
+                            android:id="@+id/textSelectedStartDate"
+                            android:layout_width="0dp" android:layout_height="wrap_content"
+                            android:layout_marginStart="16dp" android:layout_weight="1"
+                            android:textColor="@color/text_primary" android:textSize="15sp"
+                            android:textStyle="bold" tools:text="2026-10-31" />
+                    </LinearLayout>
+
+                    <!-- Start Time Row -->
+                    <LinearLayout
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp" android:gravity="center_vertical"
+                        android:orientation="horizontal">
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnPickStartTime"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="wrap_content" android:layout_height="44dp"
+                            android:text="@string/btn_pick_time" android:textColor="@color/primary"
+                            app:cornerRadius="8dp" app:strokeColor="@color/primary" />
+                        <TextView
+                            android:id="@+id/textSelectedStartTime"
+                            android:layout_width="0dp" android:layout_height="wrap_content"
+                            android:layout_marginStart="16dp" android:layout_weight="1"
+                            android:textColor="@color/text_primary" android:textSize="15sp"
+                            android:textStyle="bold" tools:text="09:00" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- End DateTime Selection Card -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardEndDateSelection"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                app:cardBackgroundColor="@color/surface" app:cardCornerRadius="12dp"
+                app:cardElevation="2dp">
+                <LinearLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical" android:padding="16dp">
+
+                    <TextView
+                        android:id="@+id/labelSelectEnd"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="@string/label_select_end"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp" android:textStyle="bold" />
+
+                    <!-- End Date Row -->
+                    <LinearLayout
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp" android:gravity="center_vertical"
+                        android:orientation="horizontal">
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnPickEndDate"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="wrap_content" android:layout_height="44dp"
+                            android:text="@string/btn_pick_date" android:textColor="@color/primary"
+                            app:cornerRadius="8dp" app:strokeColor="@color/primary" />
+                        <TextView
+                            android:id="@+id/textSelectedEndDate"
+                            android:layout_width="0dp" android:layout_height="wrap_content"
+                            android:layout_marginStart="16dp" android:layout_weight="1"
+                            android:textColor="@color/text_primary" android:textSize="15sp"
+                            android:textStyle="bold" tools:text="2026-11-02" />
+                    </LinearLayout>
+
+                    <!-- End Time Row -->
+                    <LinearLayout
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp" android:gravity="center_vertical"
+                        android:orientation="horizontal">
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnPickEndTime"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="wrap_content" android:layout_height="44dp"
+                            android:text="@string/btn_pick_time" android:textColor="@color/primary"
+                            app:cornerRadius="8dp" app:strokeColor="@color/primary" />
+                        <TextView
+                            android:id="@+id/textSelectedEndTime"
+                            android:layout_width="0dp" android:layout_height="wrap_content"
+                            android:layout_marginStart="16dp" android:layout_weight="1"
+                            android:textColor="@color/text_primary" android:textSize="15sp"
+                            android:textStyle="bold" tools:text="18:00" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Preview Card -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardSelectedPreview"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                app:cardBackgroundColor="@color/surface" app:cardCornerRadius="12dp"
+                app:cardElevation="2dp">
+                <LinearLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical" android:padding="16dp">
+
+                    <TextView
+                        android:id="@+id/labelSelectedPreview"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="@string/label_off_period_preview"
+                        android:textColor="@color/text_secondary" android:textSize="12sp" />
+
+                    <TextView
+                        android:id="@+id/textSelectedRangePreview"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:textColor="@color/text_primary" android:textSize="14sp"
+                        android:textStyle="bold" tools:text="2026-10-31 09:00 ~ 2026-11-02 18:00" />
+
+                    <TextView
+                        android:id="@+id/textStartIsoPreview"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:textColor="@color/text_secondary" android:textSize="11sp"
+                        tools:text="시작 ISO: 2026-10-31T09:00:00+09:00" />
+
+                    <TextView
+                        android:id="@+id/textEndIsoPreview"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:textColor="@color/text_secondary" android:textSize="11sp"
+                        tools:text="종료 ISO: 2026-11-02T18:00:00+09:00" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Validation Warning Card (REQ-011, done_when: 종료가 시작보다 앞서면 안내) -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardValidationWarning"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="12dp" android:visibility="gone"
+                app:cardBackgroundColor="@color/status_error_bg" app:cardCornerRadius="12dp"
+                app:cardElevation="0dp" app:strokeColor="@color/status_error" app:strokeWidth="1.5dp"
+                tools:visibility="visible">
+                <LinearLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical" android:padding="16dp">
+                    <TextView
+                        android:id="@+id/textValidationTitle"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="@string/title_guidance"
+                        android:textColor="@color/status_error" android:textSize="14sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:id="@+id/textValidationMessage"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="@string/msg_error_invalid_off_period_range"
+                        android:textColor="@color/text_primary" android:textSize="13sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Confirmation Card (done_when: 저장하면 확인 메시지가 뜨고) -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardConfirmation"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="12dp" android:visibility="gone"
+                app:cardBackgroundColor="@color/status_connected_bg" app:cardCornerRadius="12dp"
+                app:cardElevation="0dp" app:strokeColor="@color/status_connected" app:strokeWidth="1.5dp"
+                tools:visibility="visible">
+                <LinearLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical" android:padding="16dp">
+                    <TextView
+                        android:id="@+id/textConfirmationMessage"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="@string/msg_confirm_off_period_created"
+                        android:textColor="@color/status_connected" android:textSize="15sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:id="@+id/textConfirmationDetail"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:textColor="@color/text_primary" android:textSize="12sp"
+                        tools:text="쉬는 기간 ID: off-12345678" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Save Button and Progress -->
+            <FrameLayout
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="20dp">
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSaveOffPeriod"
+                    android:layout_width="match_parent" android:layout_height="52dp"
+                    android:backgroundTint="@color/primary"
+                    android:text="@string/btn_save_off_period"
+                    android:textColor="@color/on_primary" android:textSize="16sp"
+                    android:textStyle="bold" app:cornerRadius="8dp" />
+                <ProgressBar
+                    android:id="@+id/progressBarSave"
+                    android:layout_width="32dp" android:layout_height="32dp"
+                    android:layout_gravity="center"
+                    android:indeterminateTint="@color/on_primary" android:visibility="gone" />
+            </FrameLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnCancel"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="match_parent" android:layout_height="48dp"
+                android:layout_marginTop="8dp"
+                android:text="@string/btn_cancel"
+                android:textColor="@color/text_secondary" android:textSize="14sp" />
+        </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</ScrollView>

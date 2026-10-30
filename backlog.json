@@ -337,7 +337,7 @@
     {
       "id": "LB-020",
       "reqs": ["REQ-011"],
-      "status": "todo",
+      "status": "done",
       "priority": "핵심",
       "category": "쉬는기간",
       "title": "쉬는 기간 등록",
@@ -346,9 +346,9 @@
       "parent": null,
       "deps": ["LB-010", "LB-006"],
       "doc": "SPEC.md#user-flows",
-      "done_at": null,
+      "done_at": "2026-10-30",
       "must": "흐름은 SPEC F-3을 따른다.",
-      "memo": null
+      "memo": "[2026-10-30] 검증 완료: SPEC F-3 흐름 준수 쉬는 기간 등록 화면(CreateOffPeriodActivity.kt, activity_create_off_period.xml), 시작·종료 일시 선택 및 미리보기, 종료<=시작 검증 및 저장 차단/안내 문구('종료 일시는 시작 일시보다 뒤여야 합니다.'), 미래 시각 저장 시 201 Created 및 확인 메시지('쉬는 기간이 등록되었습니다'), 서버 유효성 검증(validator.py, service.py) 및 POST /api/off-periods 라우팅, S21+/Fold8 반응형 레이아웃 구현. 단위/통합 테스트 20건(전체 119건) 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인."
     },
     {
       "id": "LB-021",

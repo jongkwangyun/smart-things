@@ -110,8 +110,8 @@ class TestServer(unittest.TestCase):
             # 3. OffPeriod 시험 데이터 저장
             op_payload = {
                 "id": "op-test-1",
-                "start_at": format_kst(now_kst()),
-                "end_at": format_kst(now_kst() + timedelta(days=2)),
+                "start_at": format_kst(now_kst().replace(second=0, microsecond=0)),
+                "end_at": format_kst((now_kst() + timedelta(days=2)).replace(second=0, microsecond=0)),
             }
             st_op, body_op = self._request(srv1, "POST", "/api/off-periods", op_payload)
             self.assertEqual(st_op, 201)

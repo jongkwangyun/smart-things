@@ -14,11 +14,11 @@ from server.auth import (
     verify_shared_secret,
 )
 from server.config import Config
-from server.models import (
-    AutoStopEvent,
-    NotificationTarget,
-    OffPeriod,
-    WaterTracker,
+from server.models import AutoStopEvent, NotificationTarget, WaterTracker
+from server.off_periods import (
+    OffPeriodConflictError,
+    OffPeriodService,
+    OffPeriodValidationError,
 )
 from server.reservations import (
     ReservationConflictError,
@@ -166,8 +166,7 @@ class MiniPCHandler(BaseHTTPRequestHandler):
 
             if path == "/api/off-periods":
                 assert data is not None
-                op = OffPeriod.from_dict(data)
-                storage.save_off_period(op)
+                op = OffPeriodService(storage).create_off_period(data)
                 self._send_json(HTTPStatus.CREATED, op.to_dict())
                 return
 
@@ -191,15 +190,14 @@ class MiniPCHandler(BaseHTTPRequestHandler):
                 storage.save_notification_target(nt)
                 self._send_json(HTTPStatus.CREATED, nt.to_dict())
                 return
-        except ReservationValidationError as err:
+
+            self._send_error_json(HTTPStatus.NOT_FOUND, f"Path {path} not found")
+        except (ReservationValidationError, OffPeriodValidationError) as err:
             self._send_error_json(HTTPStatus.BAD_REQUEST, str(err))
-        except ReservationConflictError as err:
+        except (ReservationConflictError, OffPeriodConflictError) as err:
             self._send_error_json(HTTPStatus.CONFLICT, str(err))
         except (KeyError, ValueError) as err:
             self._send_error_json(HTTPStatus.BAD_REQUEST, f"Invalid model payload: {err}")
-        return
-
-        self._send_error_json(HTTPStatus.NOT_FOUND, f"Path {path} not found")
 
     def do_DELETE(self) -> None:
         path = self._clean_path()

@@ -97,7 +97,7 @@
     {
       "id": "LB-005",
       "reqs": [],
-      "status": "todo",
+      "status": "blocked",
       "priority": "핵심",
       "category": "서버기반",
       "title": "미니PC에서 스마트싱스 인증 연결과 자동 갱신",
@@ -108,7 +108,7 @@
       "doc": "SPEC.md#non-functional-requirements",
       "done_at": null,
       "must": "인증 만료로 기능이 멈추지 않아야 한다. 인증 정보는 저장소에 커밋하지 않는다.",
-      "memo": null
+      "memo": "[2026-10-30] 차단: 실제 스마트싱스 인증 토큰(PAT/OAuth) 및 로봇청소기 기기 ID(VR7MD97716G)가 미제공되어 실제 기기 상태 조회 및 토큰 자동 갱신 검증 불가 (AGENTS.md 실제 호출 근거 원칙). 해결 조건: 스마트싱스 토큰 및 기기 ID 설정 필요."
     },
     {
       "id": "LB-006",

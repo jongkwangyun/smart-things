@@ -80,4 +80,18 @@
     <string name="label_off_period_preview">선택된 쉬는 기간 (KST)</string>
     <string name="msg_confirm_off_period_created">쉬는 기간이 등록되었습니다</string>
     <string name="msg_error_invalid_off_period_range">종료 일시는 시작 일시보다 뒤여야 합니다.</string>
+
+    <!-- LB-021 쉬는 기간 목록 리소스 -->
+    <string name="title_off_period_list">쉬는 기간 목록</string>
+    <string name="subtitle_off_period_list">등록된 쉬는 기간 내역을 확인합니다.</string>
+    <string name="btn_off_period_list">쉬는 기간 목록</string>
+    <string name="btn_add_off_period">쉬는 기간 추가</string>
+    <string name="section_off_periods_header">등록된 쉬는 기간</string>
+    <string name="empty_off_periods">등록된 쉬는 기간이 없습니다.</string>
+    <string name="status_off_active_label">진행 중</string>
+    <string name="status_off_upcoming_label">예정</string>
+    <string name="status_off_ended_label">종료</string>
+    <string name="label_off_period_start">시작: %1$s</string>
+    <string name="label_off_period_end">종료: %1$s</string>
+    <string name="msg_loading_off_periods">쉬는 기간 목록을 불러오는 중…</string>
 </resources>

@@ -54,6 +54,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnCreateReservation: Button
     private lateinit var btnReservationList: Button
     private lateinit var btnCreateOffPeriod: Button
+    private lateinit var btnOffPeriodList: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -84,6 +85,7 @@ class MainActivity : AppCompatActivity() {
         btnCreateReservation = findViewById(R.id.btnCreateReservation)
         btnReservationList = findViewById(R.id.btnReservationList)
         btnCreateOffPeriod = findViewById(R.id.btnCreateOffPeriod)
+        btnOffPeriodList = findViewById(R.id.btnOffPeriodList)
 
         btnConnect.setOnClickListener {
             performConnectionCheck()
@@ -107,6 +109,14 @@ class MainActivity : AppCompatActivity() {
 
         btnCreateOffPeriod.setOnClickListener {
             val intent = Intent(this, CreateOffPeriodActivity::class.java).apply {
+                putExtra("EXTRA_SERVER_URL", ServerClient.getSavedServerUrl(this@MainActivity))
+                putExtra("EXTRA_SHARED_SECRET", ServerClient.getSavedSharedSecret(this@MainActivity))
+            }
+            startActivity(intent)
+        }
+
+        btnOffPeriodList.setOnClickListener {
+            val intent = Intent(this, OffPeriodListActivity::class.java).apply {
                 putExtra("EXTRA_SERVER_URL", ServerClient.getSavedServerUrl(this@MainActivity))
                 putExtra("EXTRA_SHARED_SECRET", ServerClient.getSavedSharedSecret(this@MainActivity))
             }

@@ -353,7 +353,7 @@
     {
       "id": "LB-021",
       "reqs": ["REQ-012"],
-      "status": "todo",
+      "status": "done",
       "priority": "핵심",
       "category": "쉬는기간",
       "title": "쉬는 기간 목록",
@@ -362,9 +362,9 @@
       "parent": null,
       "deps": ["LB-020"],
       "doc": null,
-      "done_at": null,
+      "done_at": "2026-10-30",
       "must": "두 사용자가 등록한 기간이 모두 보인다.",
-      "memo": null
+      "memo": "[2026-10-30] 검증 완료: 쉬는 기간 목록 화면(OffPeriodListActivity.kt, activity_off_period_list.xml, item_off_period.xml), 시작·종료 일시 KST 포맷 렌더링(done_when 준수), 두 사용자가 등록한 기간 일괄 조회(GET /api/off-periods, must 준수), 상태별(진행 중/예정/종료) 뱃지 스타일링, 새로고침 및 등록 연동, S21+/Fold8 반응형 레이아웃 구현. 단위/통합 테스트 9건(전체 128건) 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인."
     },
     {
       "id": "LB-022",

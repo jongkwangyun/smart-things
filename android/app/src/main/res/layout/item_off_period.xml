@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="12dp"
+    app:cardBackgroundColor="@color/surface"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="2dp"
+    app:strokeColor="@color/border_color"
+    app:strokeWidth="1dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/textOffPeriodId"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                tools:text="ID: off-a1b2c3d4" />
+
+            <!-- 상태 뱃지 (진행 중 / 예정 / 종료) -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardStatusBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:cardCornerRadius="6dp"
+                app:cardElevation="0dp"
+                app:contentPaddingBottom="4dp"
+                app:contentPaddingLeft="8dp"
+                app:contentPaddingRight="8dp"
+                app:contentPaddingTop="4dp"
+                app:strokeWidth="1dp">
+
+                <TextView
+                    android:id="@+id/textStatusBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    tools:text="진행 중" />
+            </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+
+        <!-- 시작 일시 (done_when: 시작 일시) -->
+        <TextView
+            android:id="@+id/textStartAt"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:textColor="@color/text_primary"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            tools:text="시작: 2026년 11월 01일 09:00 (KST)" />
+
+        <!-- 종료 일시 (done_when: 종료 일시) -->
+        <TextView
+            android:id="@+id/textEndAt"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="@color/text_primary"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            tools:text="종료: 2026년 11월 05일 18:00 (KST)" />
+
+        <!-- 등록 일시 -->
+        <TextView
+            android:id="@+id/textCreatedAt"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp"
+            tools:text="등록 일시: 2026-10-30 15:00:00" />
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

@@ -6,6 +6,7 @@ from server.reservations.validator import (
     ReservationError,
     ReservationValidationError,
     validate_reservation_create_payload,
+    validate_reservation_update_payload,
 )
 
 __all__ = [
@@ -15,4 +16,5 @@ __all__ = [
     "ReservationService",
     "ReservationValidationError",
     "validate_reservation_create_payload",
+    "validate_reservation_update_payload",
 ]

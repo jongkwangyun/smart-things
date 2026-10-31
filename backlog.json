@@ -305,7 +305,7 @@
     {
       "id": "LB-018",
       "reqs": ["REQ-003"],
-      "status": "todo",
+      "status": "done",
       "priority": "핵심",
       "category": "1회성예약",
       "title": "예약 일시 수정",
@@ -314,9 +314,9 @@
       "parent": null,
       "deps": ["LB-014", "LB-015"],
       "doc": null,
-      "done_at": null,
+      "done_at": "2026-11-01",
       "must": "이미 실행된 예약은 수정할 수 없다.",
-      "memo": null
+      "memo": "[2026-11-01] 검증 완료: server/reservations/update_reservation 및 PUT /api/reservations/{res_id} 구현. 이미 실행된 예약 수정 불가(REQ-003, Must) 검증. T1에서 T2로 시간 변경 시 T1 미실행 및 T2 청소 실행 검증(Done When). Android ReservationListActivity 수정 버튼 연동 및 192개 전체 테스트 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인."
     },
     {
       "id": "LB-019",

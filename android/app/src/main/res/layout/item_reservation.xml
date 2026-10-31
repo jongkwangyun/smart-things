@@ -76,7 +76,7 @@
             tools:text="실패 이유: 배터리 부족"
             tools:visibility="visible" />
 
-        <!-- Bottom Row: Meta Info (Reservation ID & Off-Period flag) -->
+        <!-- Bottom Row: Meta Info (Reservation ID & Off-Period flag) & Actions -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -97,10 +97,24 @@
                 android:id="@+id/textOffPeriodNotice"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
                 android:textColor="@color/text_secondary"
                 android:textSize="11sp"
                 android:visibility="gone"
                 tools:text="쉬는 기간 허용" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnEditReservation"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minHeight="36dp"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="4dp"
+                android:text="수정"
+                android:textSize="12sp"
+                android:visibility="gone"
+                tools:visibility="visible" />
         </LinearLayout>
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

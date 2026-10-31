@@ -105,3 +105,66 @@ def validate_reservation_create_payload(
         "reserved_at": dt,
         "allow_during_off_period": allow_off,
     }
+
+
+def validate_reservation_update_payload(
+    payload: Any,
+    now_func: Callable[[], datetime] | None = None,
+) -> dict[str, Any]:
+    """1회성 예약 수정 요청 본문을 검증하고 정규화된 딕셔너리를 반환한다 (REQ-003, REQ-001).
+
+    규칙:
+    1. 요청 본문은 JSON 객체(dict)여야 한다.
+    2. D-03: 청소 모드나 구역 선택 필드가 포함되어 있으면 거부한다.
+    3. scheduled_at 또는 reserved_at 필드로 새 일시를 지정해야 한다.
+    4. 일시는 KST(+09:00) 기준 유효한 ISO 8601 문자열이어야 한다.
+    5. 분 단위 정밀도만 허용한다(초/마이크로초=0).
+    6. REQ-001: 현재 KST 시각보다 미래여야 한다 (과거 또는 현재는 거부).
+    7. allow_during_off_period 필드가 있는 경우 boolean이어야 한다.
+    """
+    if not isinstance(payload, dict):
+        raise ReservationValidationError("요청 본문은 JSON 객체여야 합니다.")
+
+    forbidden_present = [k for k in FORBIDDEN_MODE_ZONE_KEYS if k in payload]
+    if forbidden_present:
+        fields = ", ".join(sorted(forbidden_present))
+        raise ReservationValidationError(
+            f"청소 모드 및 구역 선택은 지원되지 않습니다 (D-03: 기본 전체 청소만 지원). "
+            f"제공된 금지 필드: {fields}"
+        )
+
+    raw_datetime = payload.get("scheduled_at")
+    if raw_datetime is None:
+        raw_datetime = payload.get("reserved_at")
+
+    if raw_datetime is None:
+        raise ReservationValidationError("'scheduled_at' 또는 'reserved_at' 필드가 필요합니다.")
+
+    if not isinstance(raw_datetime, str) or not raw_datetime.strip():
+        raise ReservationValidationError("예약 일시는 비어있지 않은 ISO 8601 문자열이어야 합니다.")
+
+    try:
+        dt = parse_kst(raw_datetime)
+    except (ValueError, TypeError) as err:
+        raise ReservationValidationError(f"유효한 ISO 8601 일시 형식이 아닙니다: {raw_datetime}") from err
+
+    if not is_minute_precision(dt):
+        raise ReservationValidationError(
+            f"예약 시각은 분 단위여야 합니다 (초/마이크로초는 0이어야 함): {raw_datetime}"
+        )
+
+    curr_now = (now_func or now_kst)()
+    if dt <= curr_now:
+        raise ReservationValidationError(
+            f"예약 시각은 현재 시각({format_kst(curr_now)})보다 미래여야 합니다: {format_kst(dt)}"
+        )
+
+    result: dict[str, Any] = {"reserved_at": dt}
+    if "allow_during_off_period" in payload:
+        allow_off = payload["allow_during_off_period"]
+        if not isinstance(allow_off, bool):
+            raise ReservationValidationError("'allow_during_off_period' 필드는 boolean이어야 합니다.")
+        result["allow_during_off_period"] = allow_off
+
+    return result
+

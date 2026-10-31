@@ -8,7 +8,9 @@ from typing import Any
 from server.models import STATUS_SCHEDULED, Reservation
 from server.reservations.validator import (
     ReservationError,
+    ReservationValidationError,
     validate_reservation_create_payload,
+    validate_reservation_update_payload,
 )
 from server.storage import Storage
 from server.time_utils import now_kst
@@ -55,6 +57,31 @@ class ReservationService:
         )
 
         return self.storage.save_reservation(reservation)
+
+    def update_reservation(self, res_id: str, payload: dict[str, Any]) -> Reservation | None:
+        """예정 상태인 1회성 청소 예약의 일시를 수정한다 (REQ-003, Must rule).
+
+        - D-09: 두 사용자 동일 권한으로 수정 가능
+        - Must: 이미 실행된 예약(status != STATUS_SCHEDULED 또는 executed_at is not None)은 수정 불가
+        - REQ-001: 분 단위 미래 일시만 허용 (과거 시각 불가)
+        - 일시 수정 시 updated_at 갱신 및 storage 영구 저장
+        """
+        res = self.storage.get_reservation(res_id)
+        if res is None:
+            return None
+
+        if res.status != STATUS_SCHEDULED or res.executed_at is not None:
+            raise ReservationValidationError("이미 실행되었거나 완료/취소된 예약은 수정할 수 없습니다.")
+
+        validated = validate_reservation_update_payload(payload, now_func=self.now_func)
+
+        now = self.now_func()
+        res.reserved_at = validated["reserved_at"]
+        res.updated_at = now
+        if "allow_during_off_period" in validated:
+            res.allow_during_off_period = validated["allow_during_off_period"]
+
+        return self.storage.save_reservation(res)
 
     def list_reservations(self) -> list[Reservation]:
         """모든 예약 목록을 반환한다."""

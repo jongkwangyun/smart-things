@@ -8,23 +8,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
-from server.auth import (
-    extract_secret_from_headers,
-    is_health_check_path,
-    verify_shared_secret,
-)
+from server.auth import extract_secret_from_headers, is_health_check_path, verify_shared_secret
 from server.config import Config
 from server.models import AutoStopEvent, WaterTracker
-from server.notify import (
-    FCMClient,
-    NotificationService,
-    NotificationValidationError,
-)
-from server.off_periods import (
-    OffPeriodConflictError,
-    OffPeriodService,
-    OffPeriodValidationError,
-)
+from server.notify import FCMClient, NotificationService, NotificationValidationError
+from server.off_periods import OffPeriodConflictError, OffPeriodService, OffPeriodValidationError
 from server.reservations import (
     ReservationConflictError,
     ReservationService,
@@ -117,27 +105,23 @@ class MiniPCHandler(BaseHTTPRequestHandler):
 
         storage = self.server.storage
         if path == "/api/reservations":
-            self._send_json(HTTPStatus.OK, {"reservations": [r.to_dict() for r in storage.list_reservations()]})
-            return
+            return self._send_json(HTTPStatus.OK, {"reservations": [r.to_dict() for r in storage.list_reservations()]})
         if path.startswith("/api/reservations/"):
             res_id = path.removeprefix("/api/reservations/")
             return self._send_item(storage.get_reservation(res_id), f"Reservation {res_id} not found")
         if path == "/api/off-periods":
-            self._send_json(HTTPStatus.OK, {"off_periods": [op.to_dict() for op in storage.list_off_periods()]})
-            return
+            return self._send_json(HTTPStatus.OK, {"off_periods": [o.to_dict() for o in storage.list_off_periods()]})
         if path.startswith("/api/off-periods/"):
             op_id = path.removeprefix("/api/off-periods/")
             return self._send_item(storage.get_off_period(op_id), f"OffPeriod {op_id} not found")
         if path == "/api/auto-stop-events":
-            self._send_json(HTTPStatus.OK, {"auto_stop_events": [e.to_dict() for e in storage.list_auto_stop_events()]})
-            return
+            events = [e.to_dict() for e in storage.list_auto_stop_events()]
+            return self._send_json(HTTPStatus.OK, {"auto_stop_events": events})
         if path == "/api/water-tracker":
-            self._send_json(HTTPStatus.OK, storage.get_water_tracker().to_dict())
-            return
+            return self._send_json(HTTPStatus.OK, storage.get_water_tracker().to_dict())
         if path == "/api/notification-targets":
             targets = [nt.to_dict() for nt in storage.list_notification_targets()]
-            self._send_json(HTTPStatus.OK, {"notification_targets": targets})
-            return
+            return self._send_json(HTTPStatus.OK, {"notification_targets": targets})
         self._send_error_json(HTTPStatus.NOT_FOUND, f"Path {path} not found")
 
     def do_POST(self) -> None:
@@ -162,24 +146,22 @@ class MiniPCHandler(BaseHTTPRequestHandler):
                 return self._send_json(HTTPStatus.CREATED, op.to_dict())
             if path == "/api/auto-stop-events":
                 assert data is not None
-                event = AutoStopEvent.from_dict(data)
-                storage.save_auto_stop_event(event)
+                event = storage.save_auto_stop_event(AutoStopEvent.from_dict(data))
                 return self._send_json(HTTPStatus.CREATED, event.to_dict())
             if path == "/api/water-tracker":
-                tracker = WaterTracker.from_dict(data or {})
-                storage.save_water_tracker(tracker)
+                tracker = storage.save_water_tracker(WaterTracker.from_dict(data or {}))
                 return self._send_json(HTTPStatus.OK, tracker.to_dict())
             if path == "/api/notification-targets":
                 assert data is not None
-                dev_id, token = str(data.get("device_id", "")).strip(), str(data.get("push_token", "")).strip()
+                dev_id = str(data.get("device_id", "")).strip()
+                token = str(data.get("push_token", "")).strip()
                 t_id = str(data.get("id", "")).strip() or None
                 nt = self.server.notification_service.register_device(dev_id, token, target_id=t_id)
                 return self._send_json(HTTPStatus.CREATED, nt.to_dict())
             if path == "/api/notify/test":
                 payload = data or {}
                 result = self.server.notification_service.send_test_notification(
-                    str(payload.get("title") or "청소기 시험 알림"),
-                    str(payload.get("body") or "시험 푸시 알림입니다."),
+                    str(payload.get("title") or "청소기 시험 알림"), str(payload.get("body") or "시험 푸시 알림입니다.")
                 )
                 return self._send_json(HTTPStatus.OK, result.to_dict())
             self._send_error_json(HTTPStatus.NOT_FOUND, f"Path {path} not found")
@@ -190,29 +172,43 @@ class MiniPCHandler(BaseHTTPRequestHandler):
         except (KeyError, ValueError) as err:
             self._send_error_json(HTTPStatus.BAD_REQUEST, f"Invalid model payload: {err}")
 
+    def do_PUT(self) -> None:
+        path = self._clean_path()
+        if not self._authenticate(path):
+            return
+        data = self._read_json()
+        if data is None:
+            return self._send_error_json(HTTPStatus.BAD_REQUEST, "Invalid JSON payload")
+        try:
+            if path.startswith("/api/reservations/"):
+                res_id = path.removeprefix("/api/reservations/")
+                res = ReservationService(self.server.storage).update_reservation(res_id, data)
+                if res is None:
+                    return self._send_error_json(HTTPStatus.NOT_FOUND, f"Reservation {res_id} not found")
+                return self._send_json(HTTPStatus.OK, res.to_dict())
+            self._send_error_json(HTTPStatus.NOT_FOUND, f"Path {path} not found")
+        except ReservationValidationError as err:
+            self._send_error_json(HTTPStatus.BAD_REQUEST, str(err))
+        except (KeyError, ValueError) as err:
+            self._send_error_json(HTTPStatus.BAD_REQUEST, f"Invalid model payload: {err}")
+
     def do_DELETE(self) -> None:
         path = self._clean_path()
         if not self._authenticate(path):
             return
-
         storage = self.server.storage
         if path.startswith("/api/reservations/"):
             res_id = path.removeprefix("/api/reservations/")
-            return self._send_delete(
-                storage.delete_reservation(res_id), {"deleted": True, "id": res_id}, f"Reservation {res_id} not found"
-            )
+            ok = storage.delete_reservation(res_id)
+            return self._send_delete(ok, {"deleted": True, "id": res_id}, f"Reservation {res_id} not found")
         if path.startswith("/api/off-periods/"):
             op_id = path.removeprefix("/api/off-periods/")
-            return self._send_delete(
-                storage.delete_off_period(op_id), {"deleted": True, "id": op_id}, f"OffPeriod {op_id} not found"
-            )
+            ok = storage.delete_off_period(op_id)
+            return self._send_delete(ok, {"deleted": True, "id": op_id}, f"OffPeriod {op_id} not found")
         if path.startswith("/api/notification-targets/"):
-            device_id = path.removeprefix("/api/notification-targets/")
-            return self._send_delete(
-                storage.delete_notification_target(device_id),
-                {"deleted": True, "device_id": device_id},
-                f"Device {device_id} not found",
-            )
+            dev_id = path.removeprefix("/api/notification-targets/")
+            ok = storage.delete_notification_target(dev_id)
+            return self._send_delete(ok, {"deleted": True, "device_id": dev_id}, f"Device {dev_id} not found")
         self._send_error_json(HTTPStatus.NOT_FOUND, f"Path {path} not found")
 
 

@@ -15,6 +15,7 @@ def main() -> None:
     parser.add_argument("--secret", default=None, help="공유 비밀키 (지정하지 않으면 환경변수 사용)")
     parser.add_argument("--ssl-cert", type=Path, default=None, help="SSL 인증서 (.crt/.pem) 경로")
     parser.add_argument("--ssl-key", type=Path, default=None, help="SSL 개인키 (.key) 경로")
+    parser.add_argument("--no-scheduler", action="store_true", help="예약 스케줄러 비활성화")
     args = parser.parse_args()
 
     cfg = Config.from_env()
@@ -31,7 +32,7 @@ def main() -> None:
     if args.ssl_key:
         cfg.ssl_key_path = args.ssl_key
 
-    run_server(cfg)
+    run_server(cfg, start_scheduler=not args.no_scheduler)
 
 
 if __name__ == "__main__":

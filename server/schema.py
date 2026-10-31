@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS reservations (
     failure_reason TEXT,
     last_device_state TEXT,
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    executed_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS off_periods (

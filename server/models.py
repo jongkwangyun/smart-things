@@ -32,6 +32,7 @@ class Reservation:
     last_device_state: str | None = None
     created_at: datetime = field(default_factory=now_kst)
     updated_at: datetime = field(default_factory=now_kst)
+    executed_at: datetime | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -44,6 +45,7 @@ class Reservation:
             "last_device_state": self.last_device_state,
             "created_at": format_kst(self.created_at),
             "updated_at": format_kst(self.updated_at),
+            "executed_at": format_kst(self.executed_at) if self.executed_at else None,
         }
 
     @classmethod
@@ -58,6 +60,7 @@ class Reservation:
             last_device_state=data.get("last_device_state"),
             created_at=parse_kst(data["created_at"]) if "created_at" in data else now_kst(),
             updated_at=parse_kst(data["updated_at"]) if "updated_at" in data else now_kst(),
+            executed_at=parse_kst(data["executed_at"]) if data.get("executed_at") else None,
         )
 
 

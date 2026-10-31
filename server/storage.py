@@ -35,6 +35,10 @@ class Storage:
             self._conn.execute("PRAGMA journal_mode=WAL;")
             self._conn.execute("PRAGMA foreign_keys=ON;")
             self._conn.executescript(INIT_SCHEMA_SQL)
+            try:
+                self._conn.execute("ALTER TABLE reservations ADD COLUMN executed_at TEXT;")
+            except sqlite3.OperationalError:
+                pass
             self._conn.commit()
 
     # --- Reservation ---
@@ -42,13 +46,14 @@ class Storage:
         sql = """
             INSERT INTO reservations (
                 id, reserved_at, status, allow_during_off_period,
-                failure_reason, last_device_state, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                failure_reason, last_device_state, created_at, updated_at, executed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 reserved_at=excluded.reserved_at, status=excluded.status,
                 allow_during_off_period=excluded.allow_during_off_period,
                 failure_reason=excluded.failure_reason,
-                last_device_state=excluded.last_device_state, updated_at=excluded.updated_at;
+                last_device_state=excluded.last_device_state, updated_at=excluded.updated_at,
+                executed_at=excluded.executed_at;
         """
         vals = (
             res.id,
@@ -59,6 +64,7 @@ class Storage:
             res.last_device_state,
             format_kst(res.created_at),
             format_kst(res.updated_at),
+            format_kst(res.executed_at) if res.executed_at else None,
         )
         with self._lock:
             self._conn.execute(sql, vals)
@@ -82,6 +88,8 @@ class Storage:
             return cur.rowcount > 0
 
     def _row_to_reservation(self, row: sqlite3.Row) -> Reservation:
+        row_keys = row.keys()
+        exec_at = parse_kst(row["executed_at"]) if ("executed_at" in row_keys and row["executed_at"]) else None
         return Reservation(
             id=row["id"],
             reserved_at=parse_kst(row["reserved_at"]),
@@ -91,6 +99,7 @@ class Storage:
             last_device_state=row["last_device_state"],
             created_at=parse_kst(row["created_at"]),
             updated_at=parse_kst(row["updated_at"]),
+            executed_at=exec_at,
         )
 
     # --- OffPeriod ---

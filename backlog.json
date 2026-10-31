@@ -1,7 +1,7 @@
 {
   "$schema_version": "1",
   "meta": {
-    "updated": "2026-10-31",
+    "updated": "2026-11-01",
     "context_doc": "SPEC.md",
     "note": "로봇청소기 VR7MD97716G 스마트싱스 확장 작업 SSOT — 상세 기준은 각 작업의 done_when과 must에 있다"
   },
@@ -257,7 +257,7 @@
     {
       "id": "LB-015",
       "reqs": ["REQ-005"],
-      "status": "todo",
+      "status": "done",
       "priority": "핵심",
       "category": "1회성예약",
       "title": "예약 시각에 청소 시작 명령 실행",
@@ -266,9 +266,9 @@
       "parent": null,
       "deps": ["LB-001", "LB-005", "LB-012"],
       "doc": "SPEC.md#decisions",
-      "done_at": null,
+      "done_at": "2026-11-01",
       "must": "실행은 미니PC 스케줄러가 한다. Rules API 사용 안 함 (D-08).",
-      "memo": null
+      "memo": "[2026-11-01] 검증 완료: server/scheduler/ ReservationScheduler 및 KST 로거 구현. 5분 초과 지연 누락 처리(REQ-027), 명령 전송 전 executed_at 영구 기록을 통한 1회 실행 보장(REQ-006, LB-016), client.start_cleaning() 연동 및 server/logs/scheduler.log 기록 확인. 단위 테스트 10종 포함 전체 177개 테스트 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인."
     },
     {
       "id": "LB-016",

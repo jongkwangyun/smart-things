@@ -273,7 +273,7 @@
     {
       "id": "LB-016",
       "reqs": ["REQ-006"],
-      "status": "todo",
+      "status": "done",
       "priority": "핵심",
       "category": "1회성예약",
       "title": "1회성 예약 1회 실행 보장",
@@ -282,9 +282,9 @@
       "parent": null,
       "deps": ["LB-015"],
       "doc": null,
-      "done_at": null,
+      "done_at": "2026-11-01",
       "must": "명령 전송 전에 실행 표시를 영구 저장해 중복 실행을 막는다.",
-      "memo": null
+      "memo": "[2026-11-01] 검증 완료: tests/test_scheduler_restart.py (4개 테스트) 작성. 서버 재시작 후에도 executed_at 영구 저장을 통해 동일 예약의 중복 청소 명령 전송 0건 확인. 스케줄러 로그 파일 파싱 검증 통과. 181개 전체 단위 테스트 및 ruff/mypy/compileall 통과. code_reviewer PASS 확인."
     },
     {
       "id": "LB-017",

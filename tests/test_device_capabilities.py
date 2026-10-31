@@ -172,6 +172,28 @@ class TestDeviceCapabilitiesDoc(unittest.TestCase):
         self.assertIn("A-04", self.content)
         self.assertIn("재검토", self.content)
 
+    def test_water_usage_section_exists(self) -> None:
+        """'물 사용량' 절이 문서에 독립된 절로 존재하는지 검증 (LB-037 done_when)."""
+        self.assertTrue(
+            any(line.strip().startswith("##") and "물 사용량" in line for line in self.lines),
+            "docs/device-capabilities.md에 '물 사용량' 제목을 가진 절이 있어야 합니다.",
+        )
+
+    def test_water_usage_capacity_and_confirmed_n(self) -> None:
+        """물통 용량, 1회 사용량, 제안 N값 및 확정 N값이 문서에 기록되어 있는지 검증 (LB-037 done_when, must)."""
+        # 용량 수치 검증 (청정스테이션 정수통 4.0L, 오수통 3.6L, 본체 80ml)
+        self.assertIn("4.0 L", self.content)
+        self.assertIn("3.6 L", self.content)
+        self.assertIn("80 ml", self.content)
+        # 1회 사용량 근거 (약 300 ~ 400 ml)
+        self.assertIn("300 ~ 400 ml", self.content)
+        # 제안 N값 및 사용자 확정값 (7회)
+        self.assertIn("7회", self.content)
+        self.assertIn("REQ-021", self.content)
+        self.assertIn("A-05", self.content)
+        self.assertIn("최종 확정", self.content)
+
+
 
 if __name__ == "__main__":
     unittest.main()

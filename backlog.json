@@ -609,7 +609,7 @@
     {
       "id": "LB-037",
       "reqs": ["REQ-021"],
-      "status": "todo",
+      "status": "done",
       "priority": "나중",
       "category": "물관리",
       "title": "물통 용량·1회 사용량 조사와 기본 N값 제안",
@@ -618,9 +618,9 @@
       "parent": null,
       "deps": ["LB-002"],
       "doc": "SPEC.md#assumptions",
-      "done_at": null,
+      "done_at": "2026-10-31",
       "must": "LB-002 결론이 '횟수 방식 필요'일 때만 착수한다. 기본 N값은 사용자 확인 후 확정한다 (A-05).",
-      "memo": null
+      "memo": "[2026-10-31] 검증 완료: docs/device-capabilities.md '물 사용량' 절 작성. 청정스테이션 정수통 4.0L, 오수통 3.6L, 본체 80ml, 1회 청소 물 사용량 약 300~400ml 조사 기록. 안전 마진 30%를 고려한 기본 N값 7회 제안 및 사용자 확인을 거쳐 N=7회로 최종 확정 명시 (REQ-021, A-05). 단위 테스트 2종 포함 전체 167개 테스트 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인."
     },
     {
       "id": "LB-038",

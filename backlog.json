@@ -289,7 +289,7 @@
     {
       "id": "LB-017",
       "reqs": ["REQ-007"],
-      "status": "todo",
+      "status": "done",
       "priority": "핵심",
       "category": "1회성예약",
       "title": "예약 시각 ±5분 내 청소 시작 확인 후 '성공' 표시",
@@ -298,9 +298,9 @@
       "parent": null,
       "deps": ["LB-015", "LB-014"],
       "doc": null,
-      "done_at": null,
+      "done_at": "2026-11-01",
       "must": "판정 기준은 청소기 상태가 '청소 중'으로 바뀐 시점이 예약 시각 ±5분 이내인지다 (D-10).",
-      "memo": null
+      "memo": "[2026-11-01] 검증 완료: server/scheduler/scheduler.py 내 SUCCESS_WINDOW(±5분) 기준 기기 상태 조회 및 STATUS_SUCCESS('성공') 전이 구현. GET /api/reservations 응답 및 Android ReservationItem 파싱 결과 '성공' 확인. scheduler.log 기록 확인. tests/test_scheduler_success.py 포함 187개 전체 테스트 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인."
     },
     {
       "id": "LB-018",

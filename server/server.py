@@ -89,16 +89,11 @@ class MiniPCHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         path = self._clean_path()
         if is_health_check_path(path):
-            self._send_json(
+            return self._send_json(
                 HTTPStatus.OK,
-                {
-                    "status": "ok",
-                    "service": "smart-things-mini-pc",
-                    "time_kst": format_kst(now_kst()),
-                    "database": "connected",
-                },
+                {"status": "ok", "service": "smart-things-mini-pc",
+                 "time_kst": format_kst(now_kst()), "database": "connected"},
             )
-            return
 
         if not self._authenticate(path):
             return
@@ -130,12 +125,16 @@ class MiniPCHandler(BaseHTTPRequestHandler):
             return
 
         storage = self.server.storage
-        data = self._read_json()
-        if data is None and path not in ("/api/water-tracker", "/api/notify/test"):
-            self._send_error_json(HTTPStatus.BAD_REQUEST, "Invalid JSON payload")
-            return
-
         try:
+            if path.startswith("/api/reservations/") and path.endswith("/cancel"):
+                res_id = path.removeprefix("/api/reservations/").removesuffix("/cancel")
+                res = ReservationService(storage).cancel_reservation(res_id)
+                return self._send_item(res, f"Reservation {res_id} not found")
+
+            data = self._read_json()
+            if data is None and path not in ("/api/water-tracker", "/api/notify/test"):
+                return self._send_error_json(HTTPStatus.BAD_REQUEST, "Invalid JSON payload")
+
             if path == "/api/reservations":
                 assert data is not None
                 res = ReservationService(storage).create_reservation(data)
@@ -183,9 +182,7 @@ class MiniPCHandler(BaseHTTPRequestHandler):
             if path.startswith("/api/reservations/"):
                 res_id = path.removeprefix("/api/reservations/")
                 res = ReservationService(self.server.storage).update_reservation(res_id, data)
-                if res is None:
-                    return self._send_error_json(HTTPStatus.NOT_FOUND, f"Reservation {res_id} not found")
-                return self._send_json(HTTPStatus.OK, res.to_dict())
+                return self._send_item(res, f"Reservation {res_id} not found")
             self._send_error_json(HTTPStatus.NOT_FOUND, f"Path {path} not found")
         except ReservationValidationError as err:
             self._send_error_json(HTTPStatus.BAD_REQUEST, str(err))

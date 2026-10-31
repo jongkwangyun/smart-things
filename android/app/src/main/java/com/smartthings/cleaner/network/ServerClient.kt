@@ -1,6 +1,7 @@
 package com.smartthings.cleaner.network
 
 import android.content.Context
+import com.smartthings.cleaner.model.CancelReservationResult
 import com.smartthings.cleaner.model.ConnectionError
 import com.smartthings.cleaner.model.ConnectionState
 import com.smartthings.cleaner.model.CreateOffPeriodResult
@@ -118,24 +119,19 @@ class ServerClient(
     private fun checkAuth(baseUrl: String, secret: String): AuthCheckResult =
         when (val result = fetchReservations(baseUrl, secret)) {
             is FetchReservationsResult.Success -> AuthCheckResult.Success(result.reservations.size)
-            is FetchReservationsResult.Failure -> {
-                if (result.statusCode == 401) AuthCheckResult.Unauthorized else AuthCheckResult.Failure(result.message)
-            }
+            is FetchReservationsResult.Failure -> if (result.statusCode == 401) AuthCheckResult.Unauthorized else AuthCheckResult.Failure(result.message)
         }
 
     /** 1회성 청소 예약을 서버에 등록한다 (POST /api/reservations, REQ-001, D-03). */
     fun createReservation(serverUrl: String, sharedSecret: String, scheduledAtIso: String): CreateReservationResult {
-        val cleanUrl = normalizeUrl(serverUrl)
-        val cleanSecret = sharedSecret.trim()
-        val cleanScheduledAt = scheduledAtIso.trim()
+        val cleanUrl = normalizeUrl(serverUrl); val cleanSecret = sharedSecret.trim(); val cleanScheduledAt = scheduledAtIso.trim()
         if (cleanUrl.isEmpty() || cleanSecret.isEmpty()) return CreateReservationResult.Failure(400, "서버 주소와 공유 비밀키가 필요합니다.")
         if (cleanScheduledAt.isEmpty()) return CreateReservationResult.Failure(400, "예약 일시가 지정되지 않았습니다.")
         return try {
             val (code, body) = postJson("$cleanUrl/api/reservations", cleanSecret, JSONObject().apply { put("scheduled_at", cleanScheduledAt) })
             when (code) {
-                HttpURLConnection.HTTP_CREATED, HttpURLConnection.HTTP_OK -> {
-                    val json = JSONObject(body)
-                    CreateReservationResult.Success(json.optString("id", ""), json.optString("scheduled_at", json.optString("reserved_at", cleanScheduledAt)), json.optString("status", "예정"))
+                HttpURLConnection.HTTP_CREATED, HttpURLConnection.HTTP_OK -> JSONObject(body).let {
+                    CreateReservationResult.Success(it.optString("id", ""), it.optString("scheduled_at", it.optString("reserved_at", cleanScheduledAt)), it.optString("status", "예정"))
                 }
                 HttpURLConnection.HTTP_BAD_REQUEST -> CreateReservationResult.Failure(400, extractErrorMsg(body, "과거 시각 또는 잘못된 형식입니다: HTTP 400"))
                 HttpURLConnection.HTTP_UNAUTHORIZED -> CreateReservationResult.Failure(401, "인증 실패: 공유 비밀키가 올바르지 않습니다. (REQ-024, D-09)")
@@ -148,20 +144,14 @@ class ServerClient(
 
     /** 1회성 청소 예약 일시를 수정한다 (PUT /api/reservations/{id}, REQ-003, LB-018). */
     fun updateReservation(serverUrl: String, sharedSecret: String, reservationId: String, newScheduledAt: String): UpdateReservationResult {
-        val cleanUrl = normalizeUrl(serverUrl)
-        val cleanSecret = sharedSecret.trim()
-        val cleanId = reservationId.trim()
-        val cleanScheduledAt = newScheduledAt.trim()
+        val cleanUrl = normalizeUrl(serverUrl); val cleanSecret = sharedSecret.trim(); val cleanId = reservationId.trim(); val cleanScheduledAt = newScheduledAt.trim()
         if (cleanUrl.isEmpty() || cleanSecret.isEmpty()) return UpdateReservationResult.Failure(400, "서버 주소와 공유 비밀키가 필요합니다.")
-        if (cleanId.isEmpty()) return UpdateReservationResult.Failure(400, "예약 ID가 지정되지 않았습니다.")
-        if (cleanScheduledAt.isEmpty()) return UpdateReservationResult.Failure(400, "새 예약 일시가 지정되지 않았습니다.")
+        if (cleanId.isEmpty() || cleanScheduledAt.isEmpty()) return UpdateReservationResult.Failure(400, "예약 ID와 새 예약 일시가 필요합니다.")
         return try {
-            val payload = JSONObject().apply { put("scheduled_at", cleanScheduledAt) }
-            val (code, body) = putJson("$cleanUrl/api/reservations/$cleanId", cleanSecret, payload)
+            val (code, body) = putJson("$cleanUrl/api/reservations/$cleanId", cleanSecret, JSONObject().apply { put("scheduled_at", cleanScheduledAt) })
             when (code) {
-                HttpURLConnection.HTTP_OK -> {
-                    val json = JSONObject(body)
-                    UpdateReservationResult.Success(json.optString("id", cleanId), json.optString("scheduled_at", json.optString("reserved_at", cleanScheduledAt)), json.optString("status", "예정"))
+                HttpURLConnection.HTTP_OK -> JSONObject(body).let {
+                    UpdateReservationResult.Success(it.optString("id", cleanId), it.optString("scheduled_at", it.optString("reserved_at", cleanScheduledAt)), it.optString("status", "예정"))
                 }
                 HttpURLConnection.HTTP_BAD_REQUEST -> UpdateReservationResult.Failure(400, extractErrorMsg(body, "과거 시각 또는 수정할 수 없는 예약입니다."))
                 HttpURLConnection.HTTP_UNAUTHORIZED -> UpdateReservationResult.Failure(401, "인증 실패: 공유 비밀키가 올바르지 않습니다. (REQ-024, D-09)")
@@ -173,20 +163,37 @@ class ServerClient(
         }
     }
 
+    /** 1회성 청소 예약을 취소한다 (POST /api/reservations/{id}/cancel, REQ-004, LB-019). */
+    fun cancelReservation(serverUrl: String, sharedSecret: String, reservationId: String): CancelReservationResult {
+        val cleanUrl = normalizeUrl(serverUrl); val cleanSecret = sharedSecret.trim(); val cleanId = reservationId.trim()
+        if (cleanUrl.isEmpty() || cleanSecret.isEmpty()) return CancelReservationResult.Failure(400, "서버 주소와 공유 비밀키가 필요합니다.")
+        if (cleanId.isEmpty()) return CancelReservationResult.Failure(400, "예약 ID가 지정되지 않았습니다.")
+        return try {
+            val (code, body) = postJson("$cleanUrl/api/reservations/$cleanId/cancel", cleanSecret, JSONObject())
+            when (code) {
+                HttpURLConnection.HTTP_OK -> JSONObject(body).let {
+                    CancelReservationResult.Success(it.optString("id", cleanId), it.optString("status", "취소"))
+                }
+                HttpURLConnection.HTTP_BAD_REQUEST -> CancelReservationResult.Failure(400, extractErrorMsg(body, "이미 실행되었거나 취소할 수 없는 예약입니다."))
+                HttpURLConnection.HTTP_UNAUTHORIZED -> CancelReservationResult.Failure(401, "인증 실패: 공유 비밀키가 올바르지 않습니다. (REQ-024, D-09)")
+                HttpURLConnection.HTTP_NOT_FOUND -> CancelReservationResult.Failure(404, extractErrorMsg(body, "해당 예약을 찾을 수 없습니다."))
+                else -> CancelReservationResult.Failure(code, "서버 응답 오류 (HTTP $code)")
+            }
+        } catch (e: Exception) {
+            CancelReservationResult.Failure(0, if (e is IOException) "서버에 연결할 수 없습니다: ${e.message}" else "예약 취소 중 오류: ${e.message}")
+        }
+    }
+
     /** 쉬는 기간을 서버에 등록한다 (POST /api/off-periods, REQ-011). */
     fun createOffPeriod(serverUrl: String, sharedSecret: String, startAtIso: String, endAtIso: String): CreateOffPeriodResult {
-        val cleanUrl = normalizeUrl(serverUrl)
-        val cleanSecret = sharedSecret.trim()
-        val cleanStart = startAtIso.trim()
-        val cleanEnd = endAtIso.trim()
+        val cleanUrl = normalizeUrl(serverUrl); val cleanSecret = sharedSecret.trim(); val cleanStart = startAtIso.trim(); val cleanEnd = endAtIso.trim()
         if (cleanUrl.isEmpty() || cleanSecret.isEmpty()) return CreateOffPeriodResult.Failure(400, "서버 주소와 공유 비밀키가 필요합니다.")
         if (cleanStart.isEmpty() || cleanEnd.isEmpty()) return CreateOffPeriodResult.Failure(400, "시작 일시와 종료 일시가 필요합니다.")
         return try {
             val (code, body) = postJson("$cleanUrl/api/off-periods", cleanSecret, JSONObject().apply { put("start_at", cleanStart); put("end_at", cleanEnd) })
             when (code) {
-                HttpURLConnection.HTTP_CREATED, HttpURLConnection.HTTP_OK -> {
-                    val json = JSONObject(body)
-                    CreateOffPeriodResult.Success(json.optString("id", ""), json.optString("start_at", cleanStart), json.optString("end_at", cleanEnd))
+                HttpURLConnection.HTTP_CREATED, HttpURLConnection.HTTP_OK -> JSONObject(body).let {
+                    CreateOffPeriodResult.Success(it.optString("id", ""), it.optString("start_at", cleanStart), it.optString("end_at", cleanEnd))
                 }
                 HttpURLConnection.HTTP_BAD_REQUEST -> CreateOffPeriodResult.Failure(400, extractErrorMsg(body, "종료 일시는 시작 일시보다 뒤여야 합니다."))
                 HttpURLConnection.HTTP_UNAUTHORIZED -> CreateOffPeriodResult.Failure(401, "인증 실패: 공유 비밀키가 올바르지 않습니다. (REQ-024, D-09)")
@@ -199,15 +206,13 @@ class ServerClient(
 
     /** 예약 목록을 서버에서 조회한다 (GET /api/reservations, REQ-002). */
     fun fetchReservations(serverUrl: String, sharedSecret: String): FetchReservationsResult {
-        val cleanUrl = normalizeUrl(serverUrl)
-        val cleanSecret = sharedSecret.trim()
+        val cleanUrl = normalizeUrl(serverUrl); val cleanSecret = sharedSecret.trim()
         if (cleanUrl.isEmpty() || cleanSecret.isEmpty()) return FetchReservationsResult.Failure(400, "서버 주소와 공유 비밀키가 필요합니다.")
         return try {
             val (code, body) = getJson("$cleanUrl/api/reservations", cleanSecret)
             when (code) {
-                HttpURLConnection.HTTP_OK -> {
-                    val array = JSONObject(body).optJSONArray("reservations") ?: JSONArray()
-                    FetchReservationsResult.Success((0 until array.length()).map { ReservationItem.fromJson(array.getJSONObject(it)) })
+                HttpURLConnection.HTTP_OK -> (JSONObject(body).optJSONArray("reservations") ?: JSONArray()).let { arr ->
+                    FetchReservationsResult.Success((0 until arr.length()).map { ReservationItem.fromJson(arr.getJSONObject(it)) })
                 }
                 HttpURLConnection.HTTP_UNAUTHORIZED -> FetchReservationsResult.Failure(401, "인증 실패: 공유 비밀키가 올바르지 않습니다. (REQ-024, D-09)")
                 else -> FetchReservationsResult.Failure(code, "서버 응답 오류 (HTTP $code)")
@@ -219,15 +224,13 @@ class ServerClient(
 
     /** 쉬는 기간 목록을 서버에서 조회한다 (GET /api/off-periods, REQ-012, REQ-010, D-09). */
     fun fetchOffPeriods(serverUrl: String, sharedSecret: String): FetchOffPeriodsResult {
-        val cleanUrl = normalizeUrl(serverUrl)
-        val cleanSecret = sharedSecret.trim()
+        val cleanUrl = normalizeUrl(serverUrl); val cleanSecret = sharedSecret.trim()
         if (cleanUrl.isEmpty() || cleanSecret.isEmpty()) return FetchOffPeriodsResult.Failure(400, "서버 주소와 공유 비밀키가 필요합니다.")
         return try {
             val (code, body) = getJson("$cleanUrl/api/off-periods", cleanSecret)
             when (code) {
-                HttpURLConnection.HTTP_OK -> {
-                    val array = JSONObject(body).optJSONArray("off_periods") ?: JSONArray()
-                    FetchOffPeriodsResult.Success((0 until array.length()).map { OffPeriodItem.fromJson(array.getJSONObject(it)) })
+                HttpURLConnection.HTTP_OK -> (JSONObject(body).optJSONArray("off_periods") ?: JSONArray()).let { arr ->
+                    FetchOffPeriodsResult.Success((0 until arr.length()).map { OffPeriodItem.fromJson(arr.getJSONObject(it)) })
                 }
                 HttpURLConnection.HTTP_UNAUTHORIZED -> FetchOffPeriodsResult.Failure(401, "인증 실패: 공유 비밀키가 올바르지 않습니다. (REQ-024, D-09)")
                 else -> FetchOffPeriodsResult.Failure(code, "서버 응답 오류 (HTTP $code)")
@@ -239,15 +242,11 @@ class ServerClient(
 
     /** 푸시 토큰을 서버에 등록한다 (POST /api/notification-targets, REQ-022, D-12). */
     fun registerNotificationTarget(serverUrl: String, sharedSecret: String, deviceId: String, pushToken: String): RegisterNotificationResult {
-        val cleanUrl = normalizeUrl(serverUrl)
-        val cleanSecret = sharedSecret.trim()
-        val cleanDevice = deviceId.trim()
-        val cleanToken = pushToken.trim()
+        val cleanUrl = normalizeUrl(serverUrl); val cleanSecret = sharedSecret.trim(); val cleanDevice = deviceId.trim(); val cleanToken = pushToken.trim()
         if (cleanUrl.isEmpty() || cleanSecret.isEmpty()) return RegisterNotificationResult.Failure(400, "서버 주소와 공유 비밀키가 필요합니다.")
         if (cleanDevice.isEmpty() || cleanToken.isEmpty()) return RegisterNotificationResult.Failure(400, "기기 식별자와 푸시 토큰이 필요합니다.")
         return try {
-            val payload = JSONObject().apply { put("device_id", cleanDevice); put("push_token", cleanToken) }
-            val (code, body) = postJson("$cleanUrl/api/notification-targets", cleanSecret, payload)
+            val (code, body) = postJson("$cleanUrl/api/notification-targets", cleanSecret, JSONObject().apply { put("device_id", cleanDevice); put("push_token", cleanToken) })
             when (code) {
                 HttpURLConnection.HTTP_CREATED, HttpURLConnection.HTTP_OK -> JSONObject(body).let {
                     RegisterNotificationResult.Success(it.optString("device_id", cleanDevice), it.optString("push_token", cleanToken))
@@ -262,12 +261,10 @@ class ServerClient(
 
     /** 시험 알림을 등록된 모든 기기(두 대: S21+, 폴드8)에 발송한다 (POST /api/notify/test, D-12, done_when). */
     fun sendTestNotification(serverUrl: String, sharedSecret: String, title: String = "청소기 시험 알림", body: String = "시험 푸시 알림입니다."): SendNotificationResult {
-        val cleanUrl = normalizeUrl(serverUrl)
-        val cleanSecret = sharedSecret.trim()
+        val cleanUrl = normalizeUrl(serverUrl); val cleanSecret = sharedSecret.trim()
         if (cleanUrl.isEmpty() || cleanSecret.isEmpty()) return SendNotificationResult.Failure(400, "서버 주소와 공유 비밀키가 필요합니다.")
         return try {
-            val payload = JSONObject().apply { put("title", title); put("body", body) }
-            val (code, responseBody) = postJson("$cleanUrl/api/notify/test", cleanSecret, payload)
+            val (code, responseBody) = postJson("$cleanUrl/api/notify/test", cleanSecret, JSONObject().apply { put("title", title); put("body", body) })
             when (code) {
                 HttpURLConnection.HTTP_OK -> JSONObject(responseBody).let {
                     SendNotificationResult.Success(it.optInt("total_targets", 0), it.optInt("success_count", 0))
@@ -287,7 +284,6 @@ class ServerClient(
         data class Success(val serviceName: String, val serverTimeKst: String) : HealthCheckResult
         data class Failure(val message: String) : HealthCheckResult
     }
-
     private sealed interface AuthCheckResult {
         data class Success(val reservationCount: Int) : AuthCheckResult
         data object Unauthorized : AuthCheckResult

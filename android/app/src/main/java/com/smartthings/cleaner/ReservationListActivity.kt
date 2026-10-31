@@ -10,11 +10,13 @@ import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
+import com.smartthings.cleaner.model.CancelReservationResult
 import com.smartthings.cleaner.model.FetchReservationsResult
 import com.smartthings.cleaner.model.ReservationItem
 import com.smartthings.cleaner.model.UpdateReservationResult
@@ -35,12 +37,14 @@ import java.util.Locale
  * SPEC:
  * - REQ-002: 예약 목록 조회 (예정된 예약과 지난 예약의 날짜·시각과 상태 표시)
  * - REQ-003: 예약 일시 수정 (예정 예약만 수정 가능, 실행/완료된 예약 수정 불가)
+ * - REQ-004: 예약 취소 (예정 예약만 취소 가능, 실행/완료된 예약 취소 불가)
  * - REQ-009: 실패 이유 및 원인 미확인/마지막 기기 상태 표시
- * - REQ-010: 두 사용자 모두 조회/수정 가능
+ * - REQ-010: 두 사용자 모두 조회/수정/취소 가능
  * - REQ-025: 서버 연결 불가 경고
  * - REQ-028 / REQ-029: S21+ 및 Fold8(접힘/펼침 반응형) 지원
  * - must: 다섯 가지 상태(예정·성공·실패·취소·누락)를 모두 구분해 표시한다.
  * - must: 이미 실행된 예약은 수정할 수 없다.
+ * - must: 이미 실행된 예약은 취소할 수 없다.
  */
 class ReservationListActivity : AppCompatActivity() {
 
@@ -56,11 +60,8 @@ class ReservationListActivity : AppCompatActivity() {
             else -> StatusStyle(status, R.color.text_secondary, R.color.status_disconnected_bg, R.color.border_color)
         }
 
-        fun partitionReservations(reservations: List<ReservationItem>): Pair<List<ReservationItem>, List<ReservationItem>> {
-            val upcoming = reservations.filter { it.isUpcoming() }
-            val past = reservations.filter { !it.isUpcoming() }
-            return Pair(upcoming, past)
-        }
+        fun partitionReservations(reservations: List<ReservationItem>): Pair<List<ReservationItem>, List<ReservationItem>> =
+            Pair(reservations.filter { it.isUpcoming() }, reservations.filter { !it.isUpcoming() })
 
         fun formatFailureReasonText(reason: String?, lastDeviceState: String?): String = when {
             !reason.isNullOrBlank() -> "실패 이유: $reason"
@@ -109,19 +110,21 @@ class ReservationListActivity : AppCompatActivity() {
 
         btnRefresh.setOnClickListener { loadReservations() }
         btnAddReservation.setOnClickListener {
-            val serverUrl = intent.getStringExtra("EXTRA_SERVER_URL") ?: ServerClient.getSavedServerUrl(this)
-            val sharedSecret = intent.getStringExtra("EXTRA_SHARED_SECRET") ?: ServerClient.getSavedSharedSecret(this)
-            val createIntent = Intent(this, CreateReservationActivity::class.java).apply {
+            val (serverUrl, sharedSecret) = getCredentials()
+            startActivity(Intent(this, CreateReservationActivity::class.java).apply {
                 putExtra("EXTRA_SERVER_URL", serverUrl)
                 putExtra("EXTRA_SHARED_SECRET", sharedSecret)
-            }
-            startActivity(createIntent)
+            })
         }
     }
 
+    private fun getCredentials(): Pair<String, String> = Pair(
+        intent.getStringExtra("EXTRA_SERVER_URL") ?: ServerClient.getSavedServerUrl(this),
+        intent.getStringExtra("EXTRA_SHARED_SECRET") ?: ServerClient.getSavedSharedSecret(this)
+    )
+
     fun loadReservations() {
-        val serverUrl = intent.getStringExtra("EXTRA_SERVER_URL") ?: ServerClient.getSavedServerUrl(this)
-        val sharedSecret = intent.getStringExtra("EXTRA_SHARED_SECRET") ?: ServerClient.getSavedSharedSecret(this)
+        val (serverUrl, sharedSecret) = getCredentials()
         if (serverUrl.isBlank() || sharedSecret.isBlank()) {
             showError("서버 주소와 비밀키가 설정되지 않았습니다. 메인 화면에서 먼저 서버에 연결해 주세요.")
             return
@@ -189,7 +192,8 @@ class ReservationListActivity : AppCompatActivity() {
         val textFailureReason = view.findViewById<TextView>(R.id.textFailureReason)
         val textReservationId = view.findViewById<TextView>(R.id.textReservationId)
         val textOffPeriodNotice = view.findViewById<TextView>(R.id.textOffPeriodNotice)
-        val btnEditReservation = view.findViewById<MaterialButton>(R.id.btnEditReservation)
+        val btnEditReservation = view.findViewById<MaterialButton?>(R.id.btnEditReservation)
+        val btnCancelReservation = view.findViewById<MaterialButton?>(R.id.btnCancelReservation)
 
         textScheduledAt.text = item.formatKstDisplay()
         textReservationId.text = "ID: ${item.id}"
@@ -207,21 +211,45 @@ class ReservationListActivity : AppCompatActivity() {
             textFailureReason.visibility = View.GONE
         }
 
-        if (item.allowDuringOffPeriod) {
-            textOffPeriodNotice.visibility = View.VISIBLE
-            textOffPeriodNotice.text = "쉬는 기간 허용"
-        } else {
-            textOffPeriodNotice.visibility = View.GONE
-        }
+        textOffPeriodNotice.visibility = if (item.allowDuringOffPeriod) View.VISIBLE else View.GONE
+        if (item.allowDuringOffPeriod) textOffPeriodNotice.text = "쉬는 기간 허용"
 
-        // MUST: 이미 실행된 예약은 수정할 수 없다 (item.isUpcoming()일 때만 수정 버튼 노출)
-        if (btnEditReservation != null) {
-            if (item.isUpcoming()) {
-                btnEditReservation.visibility = View.VISIBLE
-                btnEditReservation.setOnClickListener { showEditPickers(item) }
-            } else {
-                btnEditReservation.visibility = View.GONE
-                btnEditReservation.setOnClickListener(null)
+        // MUST: 이미 실행된 예약은 수정/취소할 수 없다 (item.isUpcoming()일 때만 수정/취소 버튼 노출)
+        val isUp = item.isUpcoming()
+        btnEditReservation?.let {
+            it.visibility = if (isUp) View.VISIBLE else View.GONE
+            it.setOnClickListener(if (isUp) View.OnClickListener { showEditPickers(item) } else null)
+        }
+        btnCancelReservation?.let {
+            it.visibility = if (isUp) View.VISIBLE else View.GONE
+            it.setOnClickListener(if (isUp) View.OnClickListener { showCancelConfirmDialog(item) } else null)
+        }
+    }
+
+    fun showCancelConfirmDialog(item: ReservationItem) {
+        AlertDialog.Builder(this)
+            .setTitle("예약 취소")
+            .setMessage("예약을 취소하시겠습니까?")
+            .setPositiveButton("확인") { _, _ -> performCancelReservation(item.id) }
+            .setNegativeButton("닫기", null)
+            .show()
+    }
+
+    fun performCancelReservation(reservationId: String) {
+        val (serverUrl, sharedSecret) = getCredentials()
+        if (serverUrl.isBlank() || sharedSecret.isBlank()) return showError("서버 주소와 비밀키가 설정되지 않았습니다.")
+        progressBar.visibility = View.VISIBLE
+        lifecycleScope.launch(Dispatchers.IO) {
+            val result = serverClient.cancelReservation(serverUrl, sharedSecret, reservationId)
+            withContext(Dispatchers.Main) {
+                progressBar.visibility = View.GONE
+                when (result) {
+                    is CancelReservationResult.Success -> {
+                        Toast.makeText(this@ReservationListActivity, result.message, Toast.LENGTH_SHORT).show()
+                        loadReservations()
+                    }
+                    is CancelReservationResult.Failure -> showError(result.message)
+                }
             }
         }
     }
@@ -234,40 +262,20 @@ class ReservationListActivity : AppCompatActivity() {
             ZonedDateTime.now(kstZone).plusDays(1).withHour(10).withMinute(0)
         }
         var chosenDate = initialDateTime.toLocalDate()
-
-        DatePickerDialog(
-            this,
-            { _, year, month, dayOfMonth ->
-                chosenDate = LocalDate.of(year, month + 1, dayOfMonth)
-                TimePickerDialog(
-                    this,
-                    { _, hourOfDay, minute ->
-                        val newDt = ZonedDateTime.of(chosenDate, LocalTime.of(hourOfDay, minute), kstZone)
-                        if (!newDt.isAfter(ZonedDateTime.now(kstZone))) {
-                            showError("과거 시각은 예약할 수 없습니다.")
-                            return@TimePickerDialog
-                        }
-                        val isoStr = newDt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:00+09:00", Locale.ROOT))
-                        performUpdateReservation(item.id, isoStr)
-                    },
-                    initialDateTime.hour,
-                    initialDateTime.minute,
-                    true
-                ).show()
-            },
-            chosenDate.year,
-            chosenDate.monthValue - 1,
-            chosenDate.dayOfMonth
-        ).show()
+        DatePickerDialog(this, { _, year, month, dayOfMonth ->
+            chosenDate = LocalDate.of(year, month + 1, dayOfMonth)
+            TimePickerDialog(this, { _, hourOfDay, minute ->
+                val newDt = ZonedDateTime.of(chosenDate, LocalTime.of(hourOfDay, minute), kstZone)
+                if (!newDt.isAfter(ZonedDateTime.now(kstZone))) return@TimePickerDialog showError("과거 시각은 예약할 수 없습니다.")
+                val isoStr = newDt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:00+09:00", Locale.ROOT))
+                performUpdateReservation(item.id, isoStr)
+            }, initialDateTime.hour, initialDateTime.minute, true).show()
+        }, chosenDate.year, chosenDate.monthValue - 1, chosenDate.dayOfMonth).show()
     }
 
     fun performUpdateReservation(reservationId: String, newScheduledAt: String) {
-        val serverUrl = intent.getStringExtra("EXTRA_SERVER_URL") ?: ServerClient.getSavedServerUrl(this)
-        val sharedSecret = intent.getStringExtra("EXTRA_SHARED_SECRET") ?: ServerClient.getSavedSharedSecret(this)
-        if (serverUrl.isBlank() || sharedSecret.isBlank()) {
-            showError("서버 주소와 비밀키가 설정되지 않았습니다.")
-            return
-        }
+        val (serverUrl, sharedSecret) = getCredentials()
+        if (serverUrl.isBlank() || sharedSecret.isBlank()) return showError("서버 주소와 비밀키가 설정되지 않았습니다.")
         progressBar.visibility = View.VISIBLE
         lifecycleScope.launch(Dispatchers.IO) {
             val result = serverClient.updateReservation(serverUrl, sharedSecret, reservationId, newScheduledAt)

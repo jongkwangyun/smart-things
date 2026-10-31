@@ -5,7 +5,7 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
-from server.models import STATUS_SCHEDULED, Reservation
+from server.models import STATUS_CANCELLED, STATUS_SCHEDULED, Reservation
 from server.reservations.validator import (
     ReservationError,
     ReservationValidationError,
@@ -81,6 +81,25 @@ class ReservationService:
         if "allow_during_off_period" in validated:
             res.allow_during_off_period = validated["allow_during_off_period"]
 
+        return self.storage.save_reservation(res)
+
+    def cancel_reservation(self, res_id: str) -> Reservation | None:
+        """예정 상태인 1회성 청소 예약을 취소한다 (REQ-004, Must rule).
+
+        - D-09: 두 사용자 동일 권한으로 취소 가능
+        - Must: 이미 실행된 예약(status != STATUS_SCHEDULED 또는 executed_at is not None)은 취소 불가
+        - 취소 시 status를 STATUS_CANCELLED로 변경하고 updated_at 갱신 및 storage 영구 저장
+        """
+        res = self.storage.get_reservation(res_id)
+        if res is None:
+            return None
+
+        if res.status != STATUS_SCHEDULED or res.executed_at is not None:
+            raise ReservationValidationError("이미 실행되었거나 완료/취소된 예약은 취소할 수 없습니다.")
+
+        now = self.now_func()
+        res.status = STATUS_CANCELLED
+        res.updated_at = now
         return self.storage.save_reservation(res)
 
     def list_reservations(self) -> list[Reservation]:

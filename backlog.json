@@ -81,7 +81,7 @@
     {
       "id": "LB-004",
       "reqs": ["REQ-017"],
-      "status": "todo",
+      "status": "done",
       "priority": "검증",
       "category": "기기연동",
       "title": "반복 예약 시작과 수동 시작 구분 가능 여부 확인",
@@ -90,9 +90,9 @@
       "parent": null,
       "deps": ["LB-001"],
       "doc": "SPEC.md#assumptions",
-      "done_at": null,
+      "done_at": "2026-10-31",
       "must": "구분 불가로 결론 나면 memo에 기록하고 REQ-017 재검토가 필요하다고 사용자에게 알린다 (A-04).",
-      "memo": null
+      "memo": "[2026-10-31] 스마트싱스 API 상태/이벤트에서 반복 예약과 수동 시작을 구분할 수 있는 속성이 없어 '구분 불가'로 결론. 쉬는 기간 중 모든 청소 시작이 자동 정지 대상이 되므로 REQ-017 재검토 필요 (A-04)."
     },
     {
       "id": "LB-005",

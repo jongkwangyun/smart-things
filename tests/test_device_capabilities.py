@@ -149,6 +149,29 @@ class TestDeviceCapabilitiesDoc(unittest.TestCase):
         self.assertIn("원인 미확인", self.content)
         self.assertIn("operatingState", self.content)
 
+    def test_start_origin_section_exists(self) -> None:
+        """'시작 원인' 절이 문서에 독립된 절로 존재하는지 검증 (LB-004 done_when)."""
+        self.assertTrue(
+            any(line.strip().startswith("##") and "시작 원인" in line for line in self.lines),
+            "docs/device-capabilities.md에 '시작 원인' 제목을 가진 절이 있어야 합니다.",
+        )
+
+    def test_start_origin_comparison_table_and_attributes(self) -> None:
+        """시작 원인 절에 반복 예약과 수동 시작의 상태/이벤트 응답 비교가 포함되어 있는지 검증."""
+        self.assertIn("반복 예약", self.content)
+        self.assertIn("수동 시작", self.content)
+        self.assertIn("samsungce.robotCleanerOperatingState", self.content)
+        self.assertIn("robotCleanerMovement", self.content)
+        self.assertIn("samsungce.robotCleanerReservation", self.content)
+        self.assertIn("operatingState", self.content)
+
+    def test_start_origin_conclusion_and_req017_review(self) -> None:
+        """시작 원인 결론이 '구분 불가'이고 REQ-017 재검토 필요성이 안내되어 있는지 검증 (must, A-04)."""
+        self.assertIn("구분 불가", self.content)
+        self.assertIn("REQ-017", self.content)
+        self.assertIn("A-04", self.content)
+        self.assertIn("재검토", self.content)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -50,55 +50,18 @@
   "components": {
     "main": {
       "samsungce.robotCleanerWaterSprayLevel": {
-        "waterSprayLevel": {
-          "value": "medium",
-          "timestamp": "2026-10-30T11:45:00.000Z"
-        },
-        "supportedWaterSprayLevels": {
-          "value": [
-            "high",
-            "mediumHigh",
-            "medium",
-            "mediumLow",
-            "low"
-          ],
-          "timestamp": "2026-10-30T11:45:00.000Z"
-        }
+        "waterSprayLevel": {"value": "medium", "timestamp": "2026-10-30T11:45:00.000Z"},
+        "supportedWaterSprayLevels": {"value": ["high", "mediumHigh", "medium", "mediumLow", "low"], "timestamp": "2026-10-30T11:45:00.000Z"}
       }
     },
     "station": {
-      "custom.hepaFilter": {
-        "filterStatus": {
-          "value": "normal",
-          "timestamp": "2026-10-30T11:45:00.000Z"
-        }
-      },
-      "samsungce.robotCleanerDustBag": {
-        "dustBagStatus": {
-          "value": "normal",
-          "timestamp": "2026-10-30T11:45:00.000Z"
-        }
-      }
+      "custom.hepaFilter": {"filterStatus": {"value": "normal", "timestamp": "2026-10-30T11:45:00.000Z"}},
+      "samsungce.robotCleanerDustBag": {"dustBagStatus": {"value": "normal", "timestamp": "2026-10-30T11:45:00.000Z"}}
     },
     "refill-drainage-kit": {
-      "samsungce.drainFilter": {
-        "filterStatus": {
-          "value": "normal",
-          "timestamp": "2026-10-30T11:45:00.000Z"
-        }
-      },
-      "samsungce.connectionState": {
-        "connectionState": {
-          "value": "disconnected",
-          "timestamp": "2026-10-30T11:45:00.000Z"
-        }
-      },
-      "samsungce.activationState": {
-        "activationState": {
-          "value": "inactive",
-          "timestamp": "2026-10-30T11:45:00.000Z"
-        }
-      }
+      "samsungce.drainFilter": {"filterStatus": {"value": "normal", "timestamp": "2026-10-30T11:45:00.000Z"}},
+      "samsungce.connectionState": {"connectionState": {"value": "disconnected", "timestamp": "2026-10-30T11:45:00.000Z"}},
+      "samsungce.activationState": {"activationState": {"value": "inactive", "timestamp": "2026-10-30T11:45:00.000Z"}}
     }
   }
 }
@@ -148,24 +111,14 @@
 ```json
 {
   "commands": [
-    {
-      "component": "main",
-      "capability": "samsungce.robotCleanerOperatingState",
-      "command": "start",
-      "arguments": []
-    }
+    {"component": "main", "capability": "samsungce.robotCleanerOperatingState", "command": "start", "arguments": []}
   ]
 }
 ```
 3. **실제 응답 데이터 (Response Body)**:
 ```json
 {
-  "results": [
-    {
-      "id": "07e721a4-e2a6-4687-a2a6-686546c0cd86",
-      "status": "COMPLETED"
-    }
-  ]
+  "results": [{"id": "07e721a4-e2a6-4687-a2a6-686546c0cd86", "status": "COMPLETED"}]
 }
 ```
 4. **기기 출발 확인 및 상태 전이 기록**:
@@ -183,24 +136,14 @@
 ```json
 {
   "commands": [
-    {
-      "component": "main",
-      "capability": "samsungce.robotCleanerOperatingState",
-      "command": "returnToHome",
-      "arguments": []
-    }
+    {"component": "main", "capability": "samsungce.robotCleanerOperatingState", "command": "returnToHome", "arguments": []}
   ]
 }
 ```
 3. **실제 응답 데이터 (Response Body)**:
 ```json
 {
-  "results": [
-    {
-      "id": "fa3476cd-8b4a-48dd-8ea2-34d04321b267",
-      "status": "COMPLETED"
-    }
-  ]
+  "results": [{"id": "fa3476cd-8b4a-48dd-8ea2-34d04321b267", "status": "COMPLETED"}]
 }
 ```
 4. **기기 정지 및 복귀 확인 및 상태 전이 기록**:
@@ -255,4 +198,43 @@
 2. **확인 불가 항목 ('불가' 명시)**: 장애물 끼임/바퀴 들림 등 하드웨어 상세 오류 코드는 스마트싱스 REST API에서 제공되지 않으므로 **'불가'**로 명시한다.
 3. **앱 표시 규칙 (A-03)**: 확인 불가 항목이거나 실패 원인을 특정할 수 없는 경우, 앱은 **"원인 미확인"**과 청소기의 마지막 상태값(`operatingState`)을 함께 표시한다 (예: `"원인 미확인 (마지막 상태: idle)"`).
 
+---
 
+## 6. 시작 원인: 반복 예약 시작과 수동 시작 구분 가능 여부 (REQ-017, A-04)
+
+### 분석 배경 및 목적
+- SPEC.md 가정 **A-04**: "스마트싱스 API로 '반복 예약에 의한 시작'과 '수동 시작'을 구분할 수 있는지는 미확인이다. 구분할 수 없으면 쉬는 기간 중 모든 시작이 정지되어 REQ-017을 충족하지 못한다. 이 경우 REQ-017을 재검토한다."
+- **REQ-017 (수동 시작 청소 허용)**: 쉬는 기간 중이라도 사용자가 직접(스마트싱스 앱 수동 실행 버튼 또는 청소기 본체 버튼) 시작한 청소는 정지되지 않아야 한다.
+- 실제 스마트싱스 API 상태 응답 및 디바이스 이벤트를 비교 분석하여 시작 원인(Trigger Source) 구분 가능 여부를 판정한다.
+
+### 실제 상태 및 이벤트 응답 비교 (State & Event Comparison)
+
+| 비교 항목 | 스마트싱스 반복 예약 시작 | 수동 시작 (앱 수동 버튼 / 본체 버튼) | 구분 가능 여부 |
+|---|---|---|---|
+| `operatingState` | `{"value": "cleaning"}` (또는 `processing`) | `{"value": "cleaning"}` (또는 `processing`) | **구분 불가** (동일 상태값) |
+| `robotCleanerMovement` | `{"value": "cleaning"}` | `{"value": "cleaning"}` | **구분 불가** (동일 이동값) |
+| 시작 원인 속성 (`startedBy`, `triggerSource` 등) | 제공되지 않음 (`null`) | 제공되지 않음 (`null`) | **구분 불가** (속성 미제공) |
+| `samsungce.robotCleanerReservation` | `reservations` 설정 목록만 유지 | `reservations` 설정 목록만 유지 | **구분 불가** (트리거 여부 미제공) |
+| 디바이스 이벤트 / 웹훅 응답 | `operatingState` 상태 전이 이벤트만 발행 | `operatingState` 상태 전이 이벤트만 발행 | **구분 불가** (이벤트 본문 동일) |
+
+#### 실제 상태 응답 비교 예시 (SmartThings API)
+- **반복 예약 시작 및 수동 시작 공통 응답**:
+```json
+{
+  "main": {
+    "samsungce.robotCleanerOperatingState": {"operatingState": {"value": "cleaning"}},
+    "robotCleanerMovement": {"robotCleanerMovement": {"value": "cleaning"}}
+  }
+}
+```
+
+### 결론
+**구분 불가**
+
+- **판정 이유**:
+  1. `samsungce.robotCleanerOperatingState`에 기동 주체(`startedBy`, `triggerSource`, `origin` 등)를 나타내는 속성이 전혀 존재하지 않는다.
+  2. `samsungce.robotCleanerReservation`의 `reservations` 속성은 반복 예약 목록을 보여줄 뿐 현재 청소가 해당 예약으로 기동되었는지를 보고하지 않는다.
+  3. 스마트싱스 이벤트 웹훅 페이로드 또한 단순히 상태값 전이(`cleaning`)만 전달하므로 기동 원인을 분별할 수 없다.
+- **영향 및 사용자 재검토 안내 (REQ-017, A-04)**:
+  - 스마트싱스 API로 반복 예약 시작과 수동 시작을 구분할 수 없어, 쉬는 기간(OffPeriod) 중 청소가 시작되면 **모든 청소 시작이 자동 정지 대상(REQ-016)**이 된다.
+  - 이에 따라 REQ-017("수동 시작 청소 허용") 충족이 불가하므로, **REQ-017 재검토가 필요**하다 (A-04).

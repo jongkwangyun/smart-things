@@ -122,6 +122,32 @@ class TestDeviceCapabilitiesDoc(unittest.TestCase):
         self.assertIn("REQ-016", self.content)
         self.assertIn("A-01", self.content)
 
+    def test_error_info_section_exists(self) -> None:
+        """'오류 정보' 절이 문서에 독립된 절로 존재하는지 검증 (LB-003 done_when)."""
+        self.assertTrue(
+            any(line.strip().startswith("##") and "오류 정보" in line for line in self.lines),
+            "docs/device-capabilities.md에 '오류 정보' 제목을 가진 절이 있어야 합니다.",
+        )
+
+    def test_error_info_table_items_and_evidence(self) -> None:
+        """오류 정보 표에 배터리 부족, 먼지통, 오프라인 및 실제 응답 예시가 포함되어 있는지 검증."""
+        self.assertIn("기기 오프라인", self.content)
+        self.assertIn("배터리 부족", self.content)
+        self.assertIn("먼지통", self.content)
+        self.assertIn("모터 필터", self.content)
+        self.assertIn("일반 동작 오류", self.content)
+        self.assertIn("/health", self.content)
+        self.assertIn('"state":"OFFLINE"', self.content.replace(" ", ""))
+        self.assertIn('"battery":', self.content)
+        self.assertIn('"dustBagStatus":', self.content)
+        self.assertIn("REQ-009", self.content)
+        self.assertIn("A-03", self.content)
+
+    def test_impossible_items_marked_and_unknown_cause_rule(self) -> None:
+        """확인 불가 항목은 '불가'로 명시하고 앱은 '원인 미확인'과 마지막 상태값을 쓰는지 검증 (must, A-03)."""
+        self.assertIn("불가", self.content)
+        self.assertIn("원인 미확인", self.content)
+        self.assertIn("operatingState", self.content)
 
 
 if __name__ == "__main__":

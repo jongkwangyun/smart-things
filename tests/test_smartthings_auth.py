@@ -22,6 +22,7 @@ from server.smartthings.client import (
     SmartThingsApiError,
     SmartThingsAuthError,
     SmartThingsClient,
+    parse_failure_reason,
 )
 from server.smartthings.verify import verify_smartthings_connection
 from server.time_utils import now_kst
@@ -241,6 +242,46 @@ class TestSmartThingsAuth(unittest.TestCase):
         log_text = self.log_path.read_text(encoding="utf-8")
         self.assertIn("토큰 만료 감지됨", log_text)
         self.assertIn("토큰 갱신 완료", log_text)
+
+    def test_client_get_device_health(self) -> None:
+        """get_device_health API 조회, 401 재시도 및 오류 처리 검증 (LB-003)."""
+        token_info = TokenInfo(access_token="tok", token_type="pat")
+        manager = SmartThingsTokenManager(token_info=token_info, log_file=self.log_path)
+        client = SmartThingsClient(token_manager=manager, simulated=True)
+        self.assertEqual(client.get_device_health(self.device_id), "ONLINE")
+        client.simulated_health = "OFFLINE"
+        self.assertEqual(client.get_device_health(self.device_id), "OFFLINE")
+
+        client_real = SmartThingsClient(token_manager=manager, simulated=False)
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps({"state": "ONLINE"}).encode("utf-8")
+        mock_resp.__enter__.return_value = mock_resp
+        with patch("urllib.request.urlopen", return_value=mock_resp):
+            self.assertEqual(client_real.get_device_health(self.device_id), "ONLINE")
+
+        with patch("urllib.request.urlopen", side_effect=urllib.error.URLError("Network down")):
+            self.assertEqual(client_real.get_device_health(self.device_id), "UNKNOWN")
+
+    def test_parse_failure_reason(self) -> None:
+        """parse_failure_reason 실패 이유 분석 로직 검증 (REQ-009, A-03, LB-003)."""
+        status = DeviceStatus(device_id=self.device_id, operating_state="idle", battery=100)
+        self.assertEqual(parse_failure_reason(status, "OFFLINE"), "기기 오프라인")
+        low_bat = DeviceStatus(device_id=self.device_id, battery=15)
+        self.assertIn("배터리 부족 (15%)", parse_failure_reason(low_bat, "ONLINE") or "")
+        dust_full = DeviceStatus(device_id=self.device_id, dust_bag_status="full")
+        self.assertEqual(parse_failure_reason(dust_full, "ONLINE"), "먼지통 가득 참")
+        filter_dirty = DeviceStatus(device_id=self.device_id, motor_filter_status="washRequired")
+        self.assertEqual(parse_failure_reason(filter_dirty, "ONLINE"), "모터 필터 세척 필요")
+        err_status = DeviceStatus(device_id=self.device_id, operating_state="error")
+        self.assertEqual(parse_failure_reason(err_status, "ONLINE"), "기기 동작 오류 (error)")
+        normal_status = DeviceStatus(device_id=self.device_id, operating_state="cleaning")
+        self.assertIsNone(parse_failure_reason(normal_status, "ONLINE"))
+        self.assertIsNone(parse_failure_reason(status, "ONLINE"))
+        self.assertEqual(
+            parse_failure_reason(status, "ONLINE", fallback_unknown=True),
+            "원인 미확인 (마지막 상태: idle)",
+        )
+
 
 
 if __name__ == "__main__":

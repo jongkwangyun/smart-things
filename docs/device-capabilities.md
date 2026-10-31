@@ -230,3 +230,29 @@
 3. **REQ-016 (쉬는 기간 자동 정지)**: `returnToHome` 명령으로 반복 예약 청소를 즉시 안전하게 중단하고 복귀시킬 수 있음.
 4. **REQ-007 / REQ-009 (성공/실패 판정)**: 상태값(`cleaning`, `processing`, `error`, `idle` 등) 조회를 통해 정확한 상태 전이 판정 및 실패 이유 안내 가능.
 
+---
+
+## 5. 오류 정보: 청소 실패 원인으로 쓸 수 있는 오류 및 상태 정보 (REQ-009, A-03)
+
+### 분석 배경 및 목적
+- SPEC.md의 가정 **A-03**: "실패 이유는 API가 제공하는 오류·상태 정보 범위 안에서만 표시할 수 있다."
+- **REQ-009 (실패 이유 표시)**: 실패 알림과 예약 상세에 배터리 부족, 먼지통 가득 참, 기기 오프라인 등 확인 가능한 실패 이유를 표시하고, 이유를 특정할 수 없으면 "원인 미확인"과 마지막 상태값을 표시한다.
+- 실제 기기(VR7MD97716G, ID `03431570-5acf-f89e-7b39-275ce15d3258`)의 API 응답을 전수 조사하여 청소 실패 원인 식별 가능 여부와 처리 규칙을 확정한다.
+
+### 실제 기기 오류·상태 정보 및 확인 가능 여부
+
+| 항목 | 확인 가능 여부 | API 경로 / 속성 | 실제 응답 예시 | 처리 규칙 (REQ-009, A-03) |
+|---|---|---|---|---|
+| 기기 오프라인 | 확인 가능 | GET `/v1/devices/{id}/health`<br>`state` | `{"deviceId":"03431570-5acf-f89e-7b39-275ce15d3258","state":"ONLINE"}`<br>(오프라인 시: `{"state":"OFFLINE"}`) | `state == "OFFLINE"` 감지 시 **"기기 오프라인"** 표시 |
+| 배터리 부족 | 확인 가능 | GET `/v1/devices/{id}/status`<br>`main.battery.battery.value` | `{"battery": {"value": 100, "unit": "%"}}`<br>(부족 시: `{"battery": {"value": 15, "unit": "%"}}`) | `battery < 20%` 감지 시 **"배터리 부족 (15%)"** 표시 |
+| 먼지통 가득 참 | 확인 가능 | GET `/v1/devices/{id}/status`<br>`station.samsungce.robotCleanerDustBag` | `{"dustBagStatus": {"value": "normal"}}`<br>(가득 참: `{"dustBagStatus": {"value": "full"}}`) | `status == "full"` 감지 시 **"먼지통 가득 참"** 표시 |
+| 모터 필터 세척 필요 | 확인 가능 | GET `/v1/devices/{id}/status`<br>`main.samsungce.robotCleanerMotorFilter` | `{"motorFilterStatus": {"value": "normal"}}`<br>(세척 필요: `{"motorFilterStatus": {"value": "washRequired"}}`) | `motorFilterStatus != "normal"` 감지 시 **"모터 필터 세척 필요"** 표시 |
+| 일반 동작 오류 | 확인 가능 | GET `/v1/devices/{id}/status`<br>`main.samsungce.robotCleanerOperatingState` | `{"operatingState": {"value": "error"}}` | `operatingState == "error"` 감지 시 **"기기 동작 오류(error)"** 표시 |
+| 상세 장애물 걸림 / 바퀴 들림 등 하드웨어 끼임 | **불가** | `main.robotCleanerMovement`<br>세부 센서 코드 | `wheelsLiftedUp: null` (스마트싱스 표준 REST API 미제공) | 확인 불가 항목. 앱은 **"원인 미확인"**과 마지막 상태값(`operatingState`) 표시 (A-03) |
+
+### 결론 및 처리 규칙 확정
+1. **확인 가능 항목**: 기기 오프라인, 배터리 부족(<20%), 먼지통 가득 참, 모터 필터 세척 필요, 기기 동작 오류(`error`).
+2. **확인 불가 항목 ('불가' 명시)**: 장애물 끼임/바퀴 들림 등 하드웨어 상세 오류 코드는 스마트싱스 REST API에서 제공되지 않으므로 **'불가'**로 명시한다.
+3. **앱 표시 규칙 (A-03)**: 확인 불가 항목이거나 실패 원인을 특정할 수 없는 경우, 앱은 **"원인 미확인"**과 청소기의 마지막 상태값(`operatingState`)을 함께 표시한다 (예: `"원인 미확인 (마지막 상태: idle)"`).
+
+

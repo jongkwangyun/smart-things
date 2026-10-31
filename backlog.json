@@ -65,7 +65,7 @@
     {
       "id": "LB-003",
       "reqs": ["REQ-009"],
-      "status": "todo",
+      "status": "done",
       "priority": "검증",
       "category": "기기연동",
       "title": "청소 실패 원인으로 쓸 수 있는 오류·상태 정보 확인",
@@ -74,9 +74,9 @@
       "parent": null,
       "deps": ["LB-001"],
       "doc": "SPEC.md#assumptions",
-      "done_at": null,
+      "done_at": "2026-10-31",
       "must": "확인 불가 항목은 '불가'로 명시한다. 그 경우 앱은 '원인 미확인'을 쓴다 (A-03).",
-      "memo": null
+      "memo": "[2026-10-31] 검증 완료: docs/device-capabilities.md '오류 정보' 절 작성. 배터리 부족(<20%), 먼지통 가득 참, 기기 오프라인, 모터 필터 세척 필요, 동작 오류(error) 확인 가능 여부 및 실제 응답 예시 표 정리. 상세 하드웨어 끼임 항목은 '불가'로 명시하고 앱 표시 규칙('원인 미확인' + 마지막 operatingState) 명세 (A-03, REQ-009 준수). client.py에 get_device_health() 및 parse_failure_reason() 구현. 단위 테스트 10종 포함 전체 162개 테스트 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인."
     },
     {
       "id": "LB-004",

@@ -529,7 +529,7 @@
     {
       "id": "LB-032",
       "reqs": ["REQ-017"],
-      "status": "todo",
+      "status": "blocked",
       "priority": "검증",
       "category": "쉬는기간",
       "title": "쉬는 기간 중 수동 시작 청소 허용",
@@ -540,7 +540,7 @@
       "doc": "SPEC.md#assumptions",
       "done_at": null,
       "must": "LB-004 결론이 '구분 불가'면 blocked로 두고 memo에 사유를 남긴다 (A-04).",
-      "memo": null
+      "memo": "[2026-11-01] 사유: LB-004에서 스마트싱스 API를 통해 반복 예약 시작과 수동 시작(앱 수동 또는 본체 물리 버튼)을 구별할 수 있는 속성이 없음을 물리 검증하여 '구분 불가'로 최종 결론남. 가정 A-04 및 Must 규칙에 따라 LB-032는 blocked로 전환하며, 쉬는 기간 중 시작되는 모든 청소는 자동 정지 대상이 됨(REQ-017 재검토 대상)."
     },
     {
       "id": "LB-033",

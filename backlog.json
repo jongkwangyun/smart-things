@@ -513,7 +513,7 @@
     {
       "id": "LB-031",
       "reqs": ["REQ-015"],
-      "status": "todo",
+      "status": "done",
       "priority": "검증",
       "category": "쉬는기간",
       "title": "경고 후 허용된 예약은 자동 정지 제외",
@@ -522,9 +522,9 @@
       "parent": null,
       "deps": ["LB-030", "LB-023"],
       "doc": null,
-      "done_at": null,
+      "done_at": "2026-11-01",
       "must": "이 앱이 시작시킨 허용 예약은 정지 판정에서 반드시 제외한다.",
-      "memo": null
+      "memo": "[2026-11-01] 검증 완료: AutoStopWatcher.is_allowed_reservation_cleaning() 구현. 쉬는 기간 중 사용자가 허용한 1회성 예약(allow_during_off_period=True)은 return_to_home() 정지 대상에서 완전 제외(Must, REQ-015, D-05). 1회성 예약 청소 정상 주행 후 STATUS_SUCCESS('성공') 전이 및 Android 목록 반영 확인(Done When). 미허용 반복 예약 청소는 즉시 자동 정지 대조 확인. tests/test_allowed_reservation_execution.py 포함 229개 전체 테스트 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인."
     },
     {
       "id": "LB-032",

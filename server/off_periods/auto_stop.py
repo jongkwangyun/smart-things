@@ -7,7 +7,13 @@ from collections.abc import Callable
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from server.models import AutoStopEvent, OffPeriod
+from server.models import (
+    STATUS_CANCELLED,
+    STATUS_FAILED,
+    STATUS_MISSED,
+    AutoStopEvent,
+    OffPeriod,
+)
 from server.time_utils import now_kst, to_kst
 
 if TYPE_CHECKING:
@@ -16,6 +22,7 @@ if TYPE_CHECKING:
     from server.storage import Storage
 
 DEFAULT_DEVICE_ID = "03431570-5acf-f89e-7b39-275ce15d3258"
+ALLOWED_CLEANING_MAX_DURATION = timedelta(hours=3)
 
 
 def is_cleaner_cleaning(status: Any) -> bool:
@@ -58,12 +65,14 @@ class AutoStopWatcher:
         device_id: str = DEFAULT_DEVICE_ID,
         notification_service: NotificationService | None = None,
         now_func: Callable[[], datetime] | None = None,
+        allowed_cleaning_duration: timedelta = ALLOWED_CLEANING_MAX_DURATION,
     ) -> None:
         self.storage = storage
         self.client = client
         self.device_id = device_id
         self.notification_service = notification_service
         self.now_func = now_func or now_kst
+        self.allowed_cleaning_duration = allowed_cleaning_duration
         self.logger: logging.Logger = logging.getLogger("server.off_periods.auto_stop")
 
     def get_active_off_period(self, now: datetime) -> OffPeriod | None:
@@ -75,15 +84,21 @@ class AutoStopWatcher:
         return None
 
     def is_allowed_reservation_cleaning(self, now: datetime) -> bool:
-        """쉬는 기간 중 허용된 1회성 예약 청소인지 확인한다 (REQ-015, D-05, LB-031)."""
+        """쉬는 기간 중 허용된 1회성 예약 청소인지 확인한다 (REQ-015, D-05, LB-031).
+
+        이 앱이 시작시킨 허용 예약(allow_during_off_period == True)은
+        자동 정지 판정에서 반드시 제외한다 (Must rule).
+        """
         now_k = to_kst(now)
         for r in self.storage.list_reservations():
             if not r.allow_during_off_period:
                 continue
             if r.executed_at is None:
                 continue
+            if r.status in (STATUS_FAILED, STATUS_CANCELLED, STATUS_MISSED):
+                continue
             delta = now_k - to_kst(r.executed_at)
-            if timedelta(seconds=0) <= delta <= timedelta(minutes=10):
+            if timedelta(seconds=0) <= delta <= self.allowed_cleaning_duration:
                 return True
         return False
 
@@ -166,6 +181,7 @@ class AutoStopWatcher:
 AutoStopService = AutoStopWatcher
 
 __all__ = [
+    "ALLOWED_CLEANING_MAX_DURATION",
     "DEFAULT_DEVICE_ID",
     "AutoStopService",
     "AutoStopWatcher",

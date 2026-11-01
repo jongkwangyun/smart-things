@@ -13,11 +13,7 @@ from server.config import Config
 from server.models import AutoStopEvent, WaterTracker
 from server.notify import FCMClient, NotificationService, NotificationValidationError
 from server.off_periods import OffPeriodConflictError, OffPeriodService, OffPeriodValidationError
-from server.reservations import (
-    ReservationConflictError,
-    ReservationService,
-    ReservationValidationError,
-)
+from server.reservations import ReservationConflictError, ReservationService, ReservationValidationError
 from server.storage import Storage
 from server.time_utils import format_kst, now_kst
 
@@ -226,6 +222,8 @@ class MiniPCServer(ThreadingHTTPServer):
             FCMClient.from_config(config),
         )
         self.scheduler: ReservationScheduler | None = scheduler
+        if self.scheduler is not None and getattr(self.scheduler, "notification_service", None) is None:
+            self.scheduler.notification_service = self.notification_service
         self.ssl_context: ssl.SSLContext | None = None
         super().__init__((config.host, config.port), MiniPCHandler)
         try:
@@ -277,7 +275,7 @@ def run_server(config: Config | None = None, start_scheduler: bool = True) -> No
     if start_scheduler:
         if srv.scheduler is None:
             from server.scheduler import ReservationScheduler
-            srv.scheduler = ReservationScheduler(storage=srv.storage)
+            srv.scheduler = ReservationScheduler(storage=srv.storage, notification_service=srv.notification_service)
         srv.scheduler.start()
     host, port = str(srv.server_address[0]), int(srv.server_address[1])
     scheme = "https" if srv.is_tls else "http"

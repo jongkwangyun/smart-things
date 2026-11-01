@@ -433,7 +433,7 @@
     {
       "id": "LB-026",
       "reqs": ["REQ-008"],
-      "status": "todo",
+      "status": "done",
       "priority": "검증",
       "category": "1회성예약",
       "title": "청소 미시작 시 '실패' 표시와 실패 알림",
@@ -442,9 +442,9 @@
       "parent": null,
       "deps": ["LB-017", "LB-011"],
       "doc": null,
-      "done_at": null,
+      "done_at": "2026-11-01",
       "must": "판정 창(±5분)은 LB-017과 같은 기준을 쓴다.",
-      "memo": null
+      "memo": "[2026-11-01] 검증 완료: server/scheduler/scheduler.py 내 SUCCESS_WINDOW(+5분) 초과 시 STATUS_FAILED('실패') 전이, failure_reason 분석, notification_service.send_to_all 통한 두 단말(S21+, Fold8) FCM 푸시 발송 및 scheduler.log 경고 기록 구현. tests/test_scheduler_failure.py 포함 201개 전체 테스트 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인."
     },
     {
       "id": "LB-027",

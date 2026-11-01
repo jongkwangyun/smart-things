@@ -5,26 +5,17 @@ import threading
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from server.models import (
-    STATUS_MISSED,
-    STATUS_SCHEDULED,
-    STATUS_SUCCESS,
-    Reservation,
-)
-from server.scheduler.logger import (
-    DEFAULT_SCHEDULER_LOG_FILE,
-    get_scheduler_logger,
-)
-from server.smartthings.auth import (
-    SmartThingsTokenManager,
-    TokenInfo,
-    resolve_credential,
-)
-from server.smartthings.client import SmartThingsClient
+from server.models import STATUS_FAILED, STATUS_MISSED, STATUS_SCHEDULED, STATUS_SUCCESS, Reservation
+from server.scheduler.logger import DEFAULT_SCHEDULER_LOG_FILE, get_scheduler_logger
+from server.smartthings.auth import SmartThingsTokenManager, TokenInfo, resolve_credential
+from server.smartthings.client import SmartThingsClient, parse_failure_reason
 from server.storage import Storage
 from server.time_utils import format_kst, now_kst
+
+if TYPE_CHECKING:
+    from server.notify.service import NotificationService
 
 DEFAULT_DEVICE_ID = "03431570-5acf-f89e-7b39-275ce15d3258"
 MISSED_THRESHOLD = timedelta(minutes=5)
@@ -35,33 +26,28 @@ def _is_cleaner_cleaning(status: Any) -> bool:
     """청소기가 청소 중 상태인지 확인한다 (docs/device-capabilities.md 섹션 4)."""
     if status is None:
         return False
-
-    op_state = getattr(status, "operating_state", None)
-    if op_state is None and isinstance(status, dict):
-        op_state = status.get("operating_state")
+    op_state = getattr(status, "operating_state", None) or (
+        status.get("operating_state") if isinstance(status, dict) else None
+    )
     if str(op_state or "").lower() in ("cleaning", "processing"):
         return True
-
-    movement = getattr(status, "movement", None)
-    if movement is None and isinstance(status, dict):
-        movement = status.get("movement")
+    movement = getattr(status, "movement", None) or (
+        status.get("movement") if isinstance(status, dict) else None
+    )
     if str(movement or "").lower() == "cleaning":
         return True
-
-    raw = getattr(status, "raw_status", None)
-    if raw is None and isinstance(status, dict):
-        raw = status.get("raw_status")
+    raw = getattr(status, "raw_status", None) or (
+        status.get("raw_status") if isinstance(status, dict) else None
+    )
     if isinstance(raw, dict):
-        components = raw.get("components", {})
-        main = components.get("main", {}) if isinstance(components, dict) else {}
+        main = raw.get("components", {}).get("main", {}) if isinstance(raw.get("components"), dict) else {}
         for key in ("robotCleanerMovement", "samsungce.robotCleanerMovement"):
-            comp_movement = main.get(key)
-            if isinstance(comp_movement, dict):
+            comp = main.get(key) if isinstance(main, dict) else None
+            if isinstance(comp, dict):
                 for subkey in ("movement", "robotCleanerMovement", "value"):
-                    sub_val = comp_movement.get(subkey)
-                    if isinstance(sub_val, dict) and str(sub_val.get("value", "")).lower() == "cleaning":
-                        return True
-                    if isinstance(sub_val, str) and sub_val.lower() == "cleaning":
+                    sub = comp.get(subkey)
+                    val = sub.get("value") if isinstance(sub, dict) else sub
+                    if str(val or "").lower() == "cleaning":
                         return True
     return False
 
@@ -69,12 +55,13 @@ def _is_cleaner_cleaning(status: Any) -> bool:
 def _resolve_default_client(log_file: Path | str = DEFAULT_SCHEDULER_LOG_FILE) -> SmartThingsClient:
     """기본 스마트싱스 클라이언트를 생성한다. 토큰 부재 시 시뮬레이션 클라이언트로 대체한다."""
     try:
-        token_mgr = SmartThingsTokenManager.from_env()
-        return SmartThingsClient(token_manager=token_mgr)
+        return SmartThingsClient(token_manager=SmartThingsTokenManager.from_env())
     except Exception:
         dummy_info = TokenInfo(access_token="simulated-scheduler-token", token_type="pat")
-        token_mgr = SmartThingsTokenManager(token_info=dummy_info, log_file=log_file)
-        return SmartThingsClient(token_manager=token_mgr, simulated=True)
+        return SmartThingsClient(
+            token_manager=SmartThingsTokenManager(token_info=dummy_info, log_file=log_file),
+            simulated=True,
+        )
 
 
 def _resolve_default_device_id() -> str:
@@ -93,6 +80,7 @@ class ReservationScheduler:
         poll_interval: float = 1.0,
         now_func: Callable[[], datetime] = now_kst,
         log_file: Path | str = DEFAULT_SCHEDULER_LOG_FILE,
+        notification_service: NotificationService | None = None,
     ) -> None:
         self.storage = storage
         self.log_file = Path(log_file)
@@ -101,6 +89,7 @@ class ReservationScheduler:
         self.device_id: str = device_id or _resolve_default_device_id()
         self.poll_interval = max(0.05, float(poll_interval))
         self.now_func = now_func
+        self.notification_service = notification_service
 
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
@@ -148,64 +137,99 @@ class ReservationScheduler:
             if r.status == STATUS_SCHEDULED and r.executed_at is None:
                 # 5분 초과 지연된 예약: 누락 처리 (REQ-027)
                 if (now - r.reserved_at) > MISSED_THRESHOLD:
-                    r.status = STATUS_MISSED
-                    r.failure_reason = "예약 시각 5분 경과로 누락 처리됨"
-                    r.updated_at = now
+                    r.status, r.failure_reason, r.updated_at = STATUS_MISSED, "예약 시각 5분 경과로 누락 처리됨", now
                     self.storage.save_reservation(r)
                     self.logger.warning(
                         "예약 누락 처리 (5분 경과): id=%s, reserved_at=%s, now=%s",
-                        r.id,
-                        format_kst(r.reserved_at),
-                        format_kst(now),
+                        r.id, format_kst(r.reserved_at), format_kst(now),
                     )
                     continue
 
-                # 예약 시각 도달 시 실행
                 if r.reserved_at <= now:
-                    # 1. 중복 실행 방지를 위해 명령 전송 전 영구 저장소에 실행 일시 기록 (LB-016)
-                    r.executed_at = now
-                    r.updated_at = now
+                    r.executed_at, r.updated_at = now, now
                     self.storage.save_reservation(r)
-
-                    # 2. 청소기 시작 명령 전송
                     self.logger.info(
                         "청소 시작 명령 전송 시도: res_id=%s, reserved_at=%s, device_id=%s, cmd=start",
-                        r.id,
-                        format_kst(r.reserved_at),
-                        self.device_id,
+                        r.id, format_kst(r.reserved_at), self.device_id,
                     )
                     try:
                         res = self.client.start_cleaning(self.device_id)
                         self.logger.info(
                             "청소 시작 명령 전송 성공: res_id=%s, reserved_at=%s, device_id=%s, result=%s",
-                            r.id,
-                            format_kst(r.reserved_at),
-                            self.device_id,
-                            res,
+                            r.id, format_kst(r.reserved_at), self.device_id, res,
                         )
                     except Exception as e:
                         self.logger.error(
                             "청소 시작 명령 전송 실패: res_id=%s, reserved_at=%s, device_id=%s, error=%s",
-                            r.id,
-                            format_kst(r.reserved_at),
-                            self.device_id,
-                            e,
+                            r.id, format_kst(r.reserved_at), self.device_id, e,
                         )
-                        r.failure_reason = f"명령 전송 실패: {e}"
-                        r.updated_at = now
+                        r.failure_reason, r.updated_at = f"명령 전송 실패: {e}", now
                         self.storage.save_reservation(r)
 
                     executed.append(r)
 
-            # 2. 실행 성공 판정 (REQ-007, D-10, LB-017)
-            # 예약 시각 ±5분 이내에 청소기 상태가 '청소 중'으로 바뀌면 '성공'으로 표시
+            # 2. 실행 성공/실패 판정 (REQ-007, REQ-008, REQ-009, D-10, LB-017, LB-026)
             if r.status == STATUS_SCHEDULED and r.executed_at is not None:
-                window_start = r.reserved_at - SUCCESS_WINDOW
-                window_end = r.reserved_at + SUCCESS_WINDOW
-                if window_start <= now <= window_end:
+                if now <= r.reserved_at + SUCCESS_WINDOW:
                     self._check_and_mark_success(r, now)
+                else:
+                    self._mark_failure(r, now)
 
         return executed
+
+    def _mark_failure(self, r: Reservation, now: datetime) -> None:
+        """예약 시각 +5분 초과 시 실패 처리 및 푸시 알림 전송 (REQ-008, REQ-009, D-10, D-12, LB-026)."""
+        device_status: Any = None
+        health = "ONLINE"
+        if hasattr(self.client, "get_device_health") and callable(self.client.get_device_health):
+            try:
+                health = str(self.client.get_device_health(self.device_id) or "ONLINE").upper()
+            except Exception:
+                health = "UNKNOWN"
+
+        if hasattr(self.client, "get_device_status") and callable(self.client.get_device_status):
+            try:
+                device_status = self.client.get_device_status(self.device_id)
+                if getattr(device_status, "is_online", True) is False:
+                    health = "OFFLINE"
+            except Exception as e:
+                self.logger.warning("실패 원인 확인 중 기기 조회 실패: res_id=%s, error=%s", r.id, e)
+                if health == "ONLINE":
+                    health = "OFFLINE"
+
+        reason = parse_failure_reason(device_status, health_state=health, fallback_unknown=True)
+        r.status = STATUS_FAILED
+        r.failure_reason = reason or r.failure_reason or "원인 미확인"
+        r.last_device_state = getattr(device_status, "operating_state", None) if device_status else None
+        r.updated_at = now
+        self.storage.save_reservation(r)
+        self.logger.warning(
+            "청소 시작 확인 실패: res_id=%s, reserved_at=%s, failure_reason=%s, last_device_state=%s",
+            r.id,
+            format_kst(r.reserved_at),
+            r.failure_reason,
+            r.last_device_state,
+        )
+
+        if self.notification_service is not None:
+            title = "[로봇청소기] 청소 실패"
+            body = f"예약 청소가 시작되지 않았습니다: {r.failure_reason}"
+            data = {"type": "cleaning_failed", "reservation_id": r.id, "failure_reason": r.failure_reason or ""}
+            try:
+                send_fn = getattr(self.notification_service, "send_to_all", None) or getattr(
+                    self.notification_service, "send_multicast", None
+                )
+                if callable(send_fn):
+                    res = send_fn(title=title, body=body, data=data)
+                    self.logger.info(
+                        "청소 실패 알림 발송 완료: res_id=%s, targets=%d, success=%d, failure=%d",
+                        r.id,
+                        getattr(res, "total_targets", 0),
+                        getattr(res, "success_count", 0),
+                        getattr(res, "failure_count", 0),
+                    )
+            except Exception as e:
+                self.logger.error("실패 푸시 알림 발송 중 오류: res_id=%s, error=%s", r.id, e)
 
     def _check_and_mark_success(self, r: Reservation, now: datetime) -> bool:
         """기기 상태를 조회하여 청소 중 상태이면 '성공'으로 상태를 갱신한다 (REQ-007, D-10)."""

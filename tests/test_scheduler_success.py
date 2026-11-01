@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from server.config import Config
-from server.models import STATUS_SCHEDULED, STATUS_SUCCESS, Reservation
+from server.models import STATUS_FAILED, STATUS_SCHEDULED, STATUS_SUCCESS, Reservation
 from server.scheduler import ReservationScheduler
 from server.server import MiniPCHandler, MiniPCServer
 from server.smartthings.client import DeviceStatus
@@ -198,12 +198,12 @@ class TestSchedulerSuccess(unittest.TestCase):
         self.scheduler.step()
         self.assertEqual(self.storage.get_reservation("r2").status, STATUS_SUCCESS)  # type: ignore[union-attr]
 
-        # +6분 시점(초과) 성공 미판정
+        # +6분 시점(초과) 창 초과로 실패 전이 (LB-026)
         r3 = Reservation(id="r3", reserved_at=self.base_time, status=STATUS_SCHEDULED, executed_at=self.base_time)
         self.storage.save_reservation(r3)
         self.current_time = self.base_time + timedelta(minutes=6)
         self.scheduler.step()
-        self.assertEqual(self.storage.get_reservation("r3").status, STATUS_SCHEDULED)  # type: ignore[union-attr]
+        self.assertEqual(self.storage.get_reservation("r3").status, STATUS_FAILED)  # type: ignore[union-attr]
 
     def test_movement_cleaning_marks_success(self) -> None:
         """operating_state가 idle이어도 movement가 cleaning이면 '성공' 판정."""

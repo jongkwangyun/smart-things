@@ -84,6 +84,15 @@ class NotificationService:
             results=results,
         )
 
+    def send_to_all(
+        self,
+        title: str,
+        body: str,
+        data: dict[str, str] | None = None,
+    ) -> MulticastResult:
+        """등록된 모든 기기(두 대)로 알림 브로드캐스트 (send_multicast의 별칭, D-12)."""
+        return self.send_multicast(title=title, body=body, data=data)
+
     def send_test_notification(
         self,
         title: str = "청소기 시험 알림",

@@ -85,7 +85,7 @@ def parse_failure_reason(
     fallback_unknown: bool = False,
 ) -> str | None:
     """기기 상태 및 헬스 정보로부터 청소 실패 원인을 분석한다 (REQ-009, A-03)."""
-    if str(health_state).upper() == "OFFLINE":
+    if str(health_state).upper() == "OFFLINE" or (device_status is not None and not device_status.is_online):
         return "기기 오프라인"
     if device_status is None:
         return "원인 미확인 (기기 상태 정보 없음)" if fallback_unknown else None

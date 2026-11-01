@@ -449,7 +449,7 @@
     {
       "id": "LB-027",
       "reqs": ["REQ-009"],
-      "status": "todo",
+      "status": "done",
       "priority": "검증",
       "category": "1회성예약",
       "title": "실패 이유 표시",
@@ -458,9 +458,9 @@
       "parent": null,
       "deps": ["LB-003", "LB-026"],
       "doc": null,
-      "done_at": null,
+      "done_at": "2026-11-01",
       "must": "LB-003에서 확인된 정보만 이유로 쓴다. 추측한 이유를 표시하지 않는다.",
-      "memo": null
+      "memo": "[2026-11-01] 검증 완료: parse_failure_reason 기반 LB-003 확정 5대 사유(오프라인, 배터리 부족, 먼지통 가득 참, 필터 세척, 기기 오류) 및 원인 미확인(마지막 상태값 포함) 포맷팅 구현. 푸시 알림 및 Android ReservationListActivity 내 textFailureReason 표시 확인. tests/test_failure_reasons.py 포함 205개 전체 테스트 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인."
     },
     {
       "id": "LB-028",

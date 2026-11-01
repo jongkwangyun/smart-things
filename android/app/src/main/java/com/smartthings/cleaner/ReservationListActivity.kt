@@ -64,8 +64,9 @@ class ReservationListActivity : AppCompatActivity() {
             Pair(reservations.filter { it.isUpcoming() }, reservations.filter { !it.isUpcoming() })
 
         fun formatFailureReasonText(reason: String?, lastDeviceState: String?): String = when {
-            !reason.isNullOrBlank() -> "실패 이유: $reason"
+            !reason.isNullOrBlank() && reason != "원인 미확인" -> "실패 이유: $reason"
             !lastDeviceState.isNullOrBlank() -> "실패 이유: 원인 미확인 (마지막 기기 상태: $lastDeviceState)"
+            !reason.isNullOrBlank() -> "실패 이유: $reason"
             else -> "실패 이유: 원인 미확인"
         }
     }

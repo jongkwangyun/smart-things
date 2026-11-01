@@ -107,17 +107,17 @@ class TestStorage(unittest.TestCase):
     def test_water_tracker(self) -> None:
         tracker = self.storage.get_water_tracker()
         self.assertEqual(tracker.mop_clean_count, 0)
-        self.assertEqual(tracker.alert_threshold_n, 5)
+        self.assertEqual(tracker.alert_threshold_n, 7)
 
         refill_time = now_kst()
         tracker.last_refilled_at = refill_time
         tracker.mop_clean_count = 3
-        tracker.alert_threshold_n = 7
+        tracker.alert_threshold_n = 10
         self.storage.save_water_tracker(tracker)
 
         updated = self.storage.get_water_tracker()
         self.assertEqual(updated.mop_clean_count, 3)
-        self.assertEqual(updated.alert_threshold_n, 7)
+        self.assertEqual(updated.alert_threshold_n, 10)
         self.assertIsNotNone(updated.last_refilled_at)
 
     def test_notification_target_two_devices(self) -> None:

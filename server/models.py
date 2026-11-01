@@ -122,7 +122,7 @@ class WaterTracker:
     id: str = "default"
     last_refilled_at: datetime | None = None
     mop_clean_count: int = 0
-    alert_threshold_n: int = 5
+    alert_threshold_n: int = 7
     last_alerted_at: datetime | None = None
     updated_at: datetime = field(default_factory=now_kst)
 
@@ -142,7 +142,7 @@ class WaterTracker:
             id=str(data.get("id", "default")),
             last_refilled_at=parse_kst(data["last_refilled_at"]) if data.get("last_refilled_at") else None,
             mop_clean_count=int(data.get("mop_clean_count", 0)),
-            alert_threshold_n=int(data.get("alert_threshold_n", 5)),
+            alert_threshold_n=int(data.get("alert_threshold_n", 7)),
             last_alerted_at=parse_kst(data["last_alerted_at"]) if data.get("last_alerted_at") else None,
             updated_at=parse_kst(data["updated_at"]) if "updated_at" in data else now_kst(),
         )

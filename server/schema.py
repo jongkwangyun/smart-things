@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS water_trackers (
     id TEXT PRIMARY KEY,
     last_refilled_at TEXT,
     mop_clean_count INTEGER NOT NULL DEFAULT 0,
-    alert_threshold_n INTEGER NOT NULL DEFAULT 5,
+    alert_threshold_n INTEGER NOT NULL DEFAULT 7,
     last_alerted_at TEXT,
     updated_at TEXT NOT NULL
 );

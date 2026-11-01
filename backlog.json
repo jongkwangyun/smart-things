@@ -625,7 +625,7 @@
     {
       "id": "LB-038",
       "reqs": ["REQ-019"],
-      "status": "todo",
+      "status": "done",
       "priority": "나중",
       "category": "물관리",
       "title": "'물 채움' 버튼으로 물걸레 청소 횟수 초기화",
@@ -634,9 +634,9 @@
       "parent": null,
       "deps": ["LB-037"],
       "doc": null,
-      "done_at": null,
+      "done_at": "2026-11-01",
       "must": "REQ-018이 불가능할 때만 적용하는 조건부 요구다.",
-      "memo": null
+      "memo": "[2026-11-01] 검증 완료: server/water/service.py WaterService 및 POST /api/water-tracker/refill 구현. Android WaterManagementActivity '물 채움' 버튼 클릭 시 mop_clean_count 0회 초기화 및 last_refilled_at KST 일시 실시간 갱신 확인(Done When). REQ-018 불가 확정(LB-002, LB-037)에 따른 조건부 요구(Must, REQ-019) 적용. N=7 기본 임계치 반영. tests/test_water_management.py 포함 234개 전체 테스트 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인."
     },
     {
       "id": "LB-039",

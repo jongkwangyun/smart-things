@@ -53,6 +53,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnReservationList: Button
     private lateinit var btnCreateOffPeriod: Button
     private lateinit var btnOffPeriodList: Button
+    private lateinit var btnWaterManagement: Button
     private lateinit var btnSendTestNotification: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -86,6 +87,7 @@ class MainActivity : AppCompatActivity() {
         btnReservationList = findViewById(R.id.btnReservationList)
         btnCreateOffPeriod = findViewById(R.id.btnCreateOffPeriod)
         btnOffPeriodList = findViewById(R.id.btnOffPeriodList)
+        btnWaterManagement = findViewById(R.id.btnWaterManagement)
         btnSendTestNotification = findViewById(R.id.btnSendTestNotification)
 
         btnConnect.setOnClickListener { performConnectionCheck() }
@@ -93,6 +95,7 @@ class MainActivity : AppCompatActivity() {
         btnReservationList.setOnClickListener { navigateTo(ReservationListActivity::class.java) }
         btnCreateOffPeriod.setOnClickListener { navigateTo(CreateOffPeriodActivity::class.java) }
         btnOffPeriodList.setOnClickListener { navigateTo(OffPeriodListActivity::class.java) }
+        btnWaterManagement.setOnClickListener { navigateTo(WaterManagementActivity::class.java) }
         btnSendTestNotification.setOnClickListener { performSendTestNotification() }
     }
 

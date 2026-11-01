@@ -43,6 +43,11 @@
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|uiMode"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name=".WaterManagementActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|uiMode"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
         <service
             android:name=".notification.AppFirebaseMessagingService"
             android:exported="false">

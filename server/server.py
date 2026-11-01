@@ -16,6 +16,7 @@ from server.off_periods import OffPeriodConflictError, OffPeriodService, OffPeri
 from server.reservations import ReservationConflictError, ReservationService, ReservationValidationError
 from server.storage import Storage
 from server.time_utils import format_kst, now_kst
+from server.water import WaterService
 
 if TYPE_CHECKING:
     from server.scheduler import ReservationScheduler
@@ -41,15 +42,13 @@ class MiniPCHandler(BaseHTTPRequestHandler):
 
     def _send_item(self, item: Any, not_found_msg: str) -> None:
         if item is None:
-            self._send_error_json(HTTPStatus.NOT_FOUND, not_found_msg)
-        else:
-            self._send_json(HTTPStatus.OK, item.to_dict())
+            return self._send_error_json(HTTPStatus.NOT_FOUND, not_found_msg)
+        self._send_json(HTTPStatus.OK, item.to_dict())
 
     def _send_delete(self, success: bool, payload: dict[str, Any], not_found_msg: str) -> None:
         if not success:
-            self._send_error_json(HTTPStatus.NOT_FOUND, not_found_msg)
-        else:
-            self._send_json(HTTPStatus.OK, payload)
+            return self._send_error_json(HTTPStatus.NOT_FOUND, not_found_msg)
+        self._send_json(HTTPStatus.OK, payload)
 
     def _authenticate(self, path: str) -> bool:
         if is_health_check_path(path):
@@ -122,6 +121,9 @@ class MiniPCHandler(BaseHTTPRequestHandler):
 
         storage = self.server.storage
         try:
+            if path == "/api/water-tracker/refill":
+                tracker = WaterService(storage).refill_water()
+                return self._send_json(HTTPStatus.OK, tracker.to_dict())
             if path.startswith("/api/reservations/") and path.endswith("/cancel"):
                 res_id = path.removeprefix("/api/reservations/").removesuffix("/cancel")
                 res = ReservationService(storage).cancel_reservation(res_id)

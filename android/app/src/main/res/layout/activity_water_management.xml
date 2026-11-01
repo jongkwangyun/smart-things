@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/scrollViewWaterManagement"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@color/background" android:fillViewport="true">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:padding="20dp">
+
+        <LinearLayout
+            android:id="@+id/contentLayout"
+            android:layout_width="0dp" android:layout_height="wrap_content"
+            android:orientation="vertical"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.1"
+            app:layout_constraintWidth_max="640dp">
+
+            <TextView
+                android:id="@+id/textTitle"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="@string/title_water_management"
+                android:textColor="@color/primary" android:textSize="22sp" android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/textSubtitle"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/subtitle_water_management"
+                android:textColor="@color/text_secondary" android:textSize="13sp" />
+
+            <!-- Water Tracker Card -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardWaterTracker"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                app:cardBackgroundColor="@color/surface" app:cardCornerRadius="12dp"
+                app:cardElevation="2dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical" android:padding="20dp">
+
+                    <TextView
+                        android:id="@+id/labelMopCleanCount"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="@string/label_mop_clean_count"
+                        android:textColor="@color/text_secondary" android:textSize="13sp" />
+
+                    <TextView
+                        android:id="@+id/textMopCleanCount"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:textColor="@color/primary" android:textSize="36sp"
+                        android:textStyle="bold" tools:text="0회" />
+
+                    <View
+                        android:layout_width="match_parent" android:layout_height="1dp"
+                        android:layout_marginVertical="16dp"
+                        android:background="@color/border_color" />
+
+                    <TextView
+                        android:id="@+id/labelLastRefilledAt"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="@string/label_last_refilled_at"
+                        android:textColor="@color/text_secondary" android:textSize="13sp" />
+
+                    <TextView
+                        android:id="@+id/textLastRefilledAt"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:textColor="@color/text_primary" android:textSize="15sp"
+                        android:textStyle="bold" tools:text="2026-10-31 10:00:00 (KST)" />
+
+                    <View
+                        android:layout_width="match_parent" android:layout_height="1dp"
+                        android:layout_marginVertical="16dp"
+                        android:background="@color/border_color" />
+
+                    <TextView
+                        android:id="@+id/labelAlertThreshold"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="@string/label_alert_threshold"
+                        android:textColor="@color/text_secondary" android:textSize="13sp" />
+
+                    <TextView
+                        android:id="@+id/textAlertThreshold"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:textColor="@color/text_primary" android:textSize="15sp"
+                        tools:text="7회 (도달 시 푸시 알림)" />
+
+                    <ProgressBar
+                        android:id="@+id/progressBar"
+                        style="?android:attr/progressBarStyleHorizontal"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp" android:indeterminate="true"
+                        android:visibility="gone" />
+
+                    <TextView
+                        android:id="@+id/textStatusMessage"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:textColor="@color/text_secondary" android:textSize="12sp"
+                        android:visibility="gone" tools:text="물 채움 완료" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Refill Water Button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnRefillWater"
+                android:layout_width="match_parent" android:layout_height="52dp"
+                android:layout_marginTop="20dp"
+                android:backgroundTint="@color/primary"
+                android:text="@string/btn_refill_water"
+                android:textColor="@color/on_primary"
+                android:textSize="16sp" android:textStyle="bold"
+                app:cornerRadius="8dp" />
+
+            <!-- Refresh Button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnRefresh"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="match_parent" android:layout_height="48dp"
+                android:layout_marginTop="8dp"
+                android:text="@string/btn_refresh"
+                android:textColor="@color/primary"
+                android:textSize="14sp" android:textStyle="bold"
+                app:cornerRadius="8dp" app:strokeColor="@color/primary" />
+
+        </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</ScrollView>

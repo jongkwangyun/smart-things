@@ -10,7 +10,7 @@ import java.net.MalformedURLException
 import java.net.URL
 
 /**
- * 미니PC 로봇청소기 서버 통신 클라이언트 (D-01, D-09, D-12, REQ-022, REQ-024, REQ-025).
+ * 미니PC 로봇청소기 서버 통신 클라이언트 (D-01, D-09, D-12, REQ-019, REQ-022, REQ-024, REQ-025).
  */
 class ServerClient(
     private val connectTimeoutMs: Int = 5000,
@@ -20,6 +20,7 @@ class ServerClient(
         private const val PREFS_NAME = "smartthings_cleaner_prefs"
         private const val KEY_SERVER_URL = "key_server_url"
         private const val KEY_SHARED_SECRET = "key_shared_secret"
+        private const val ERR_AUTH = "인증 실패: 공유 비밀키가 올바르지 않습니다. (REQ-024, D-09)"
 
         fun normalizeUrl(rawUrl: String): String = rawUrl.trim().removeSuffix("/")
         private fun prefs(c: Context) = c.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -66,6 +67,9 @@ class ServerClient(
     private fun extractErrorMsg(jsonStr: String, fallback: String): String =
         try { JSONObject(jsonStr).optString("error", fallback) } catch (_: Exception) { fallback }
 
+    private fun ioErrMsg(e: Exception, contextMsg: String): String =
+        if (e is IOException) "서버에 연결할 수 없습니다: ${e.message}" else "$contextMsg: ${e.message}"
+
     /** 서버 연결 상태를 검증한다 (REQ-024, REQ-025). */
     fun testConnection(serverUrl: String, sharedSecret: String): ConnectionState {
         val cleanUrl = normalizeUrl(serverUrl); val cleanSecret = sharedSecret.trim()
@@ -78,7 +82,7 @@ class ServerClient(
 
         return when (val authResult = checkAuth(cleanUrl, cleanSecret)) {
             is AuthCheckResult.Success -> ConnectionState.Connected(cleanUrl, health.serviceName, health.serverTimeKst, authResult.reservationCount)
-            is AuthCheckResult.Unauthorized -> ConnectionState.Failed(ConnectionError.UNAUTHORIZED, "인증 실패: 공유 비밀키가 올바르지 않습니다. (REQ-024, D-09)")
+            is AuthCheckResult.Unauthorized -> ConnectionState.Failed(ConnectionError.UNAUTHORIZED, ERR_AUTH)
             is AuthCheckResult.Failure -> ConnectionState.Failed(ConnectionError.UNREACHABLE, authResult.message)
         }
     }
@@ -98,12 +102,7 @@ class ServerClient(
         }
 
     /** 1회성 청소 예약을 서버에 등록한다 (POST /api/reservations, REQ-001, D-03). */
-    fun createReservation(
-        serverUrl: String,
-        sharedSecret: String,
-        scheduledAtIso: String,
-        allowDuringOffPeriod: Boolean = false
-    ): CreateReservationResult {
+    fun createReservation(serverUrl: String, sharedSecret: String, scheduledAtIso: String, allowDuringOffPeriod: Boolean = false): CreateReservationResult {
         val cleanUrl = normalizeUrl(serverUrl); val cleanSecret = sharedSecret.trim(); val cleanScheduledAt = scheduledAtIso.trim()
         if (cleanUrl.isEmpty() || cleanSecret.isEmpty()) return CreateReservationResult.Failure(400, "서버 주소와 공유 비밀키가 필요합니다.")
         if (cleanScheduledAt.isEmpty()) return CreateReservationResult.Failure(400, "예약 일시가 지정되지 않았습니다.")
@@ -115,22 +114,14 @@ class ServerClient(
                     CreateReservationResult.Success(it.optString("id", ""), it.optString("scheduled_at", it.optString("reserved_at", cleanScheduledAt)), it.optString("status", "예정"))
                 }
                 HttpURLConnection.HTTP_BAD_REQUEST -> CreateReservationResult.Failure(400, extractErrorMsg(body, "과거 시각 또는 잘못된 형식입니다: HTTP 400"))
-                HttpURLConnection.HTTP_UNAUTHORIZED -> CreateReservationResult.Failure(401, "인증 실패: 공유 비밀키가 올바르지 않습니다. (REQ-024, D-09)")
+                HttpURLConnection.HTTP_UNAUTHORIZED -> CreateReservationResult.Failure(401, ERR_AUTH)
                 else -> CreateReservationResult.Failure(code, "서버 응답 오류 (HTTP $code)")
             }
-        } catch (e: Exception) {
-            CreateReservationResult.Failure(0, if (e is IOException) "서버에 연결할 수 없습니다: ${e.message}" else "예약 생성 중 오류: ${e.message}")
-        }
+        } catch (e: Exception) { CreateReservationResult.Failure(0, ioErrMsg(e, "예약 생성 중 오류")) }
     }
 
     /** 1회성 청소 예약 일시를 수정한다 (PUT /api/reservations/{id}, REQ-003, LB-018). */
-    fun updateReservation(
-        serverUrl: String,
-        sharedSecret: String,
-        reservationId: String,
-        newScheduledAt: String,
-        allowDuringOffPeriod: Boolean = false
-    ): UpdateReservationResult {
+    fun updateReservation(serverUrl: String, sharedSecret: String, reservationId: String, newScheduledAt: String, allowDuringOffPeriod: Boolean = false): UpdateReservationResult {
         val cleanUrl = normalizeUrl(serverUrl); val cleanSecret = sharedSecret.trim(); val cleanId = reservationId.trim(); val cleanScheduledAt = newScheduledAt.trim()
         if (cleanUrl.isEmpty() || cleanSecret.isEmpty()) return UpdateReservationResult.Failure(400, "서버 주소와 공유 비밀키가 필요합니다.")
         if (cleanId.isEmpty() || cleanScheduledAt.isEmpty()) return UpdateReservationResult.Failure(400, "예약 ID와 새 예약 일시가 필요합니다.")
@@ -140,13 +131,11 @@ class ServerClient(
             when (code) {
                 HttpURLConnection.HTTP_OK -> JSONObject(body).let { UpdateReservationResult.Success(it.optString("id", cleanId), it.optString("scheduled_at", it.optString("reserved_at", cleanScheduledAt)), it.optString("status", "예정")) }
                 HttpURLConnection.HTTP_BAD_REQUEST -> UpdateReservationResult.Failure(400, extractErrorMsg(body, "과거 시각 또는 수정할 수 없는 예약입니다."))
-                HttpURLConnection.HTTP_UNAUTHORIZED -> UpdateReservationResult.Failure(401, "인증 실패: 공유 비밀키가 올바르지 않습니다. (REQ-024, D-09)")
+                HttpURLConnection.HTTP_UNAUTHORIZED -> UpdateReservationResult.Failure(401, ERR_AUTH)
                 HttpURLConnection.HTTP_NOT_FOUND -> UpdateReservationResult.Failure(404, extractErrorMsg(body, "해당 예약을 찾을 수 없습니다."))
                 else -> UpdateReservationResult.Failure(code, "서버 응답 오류 (HTTP $code)")
             }
-        } catch (e: Exception) {
-            UpdateReservationResult.Failure(0, if (e is IOException) "서버에 연결할 수 없습니다: ${e.message}" else "예약 수정 중 오류: ${e.message}")
-        }
+        } catch (e: Exception) { UpdateReservationResult.Failure(0, ioErrMsg(e, "예약 수정 중 오류")) }
     }
 
     /** 1회성 청소 예약을 취소한다 (POST /api/reservations/{id}/cancel, REQ-004, LB-019). */
@@ -159,13 +148,11 @@ class ServerClient(
             when (code) {
                 HttpURLConnection.HTTP_OK -> JSONObject(body).let { CancelReservationResult.Success(it.optString("id", cleanId), it.optString("status", "취소")) }
                 HttpURLConnection.HTTP_BAD_REQUEST -> CancelReservationResult.Failure(400, extractErrorMsg(body, "이미 실행되었거나 취소할 수 없는 예약입니다."))
-                HttpURLConnection.HTTP_UNAUTHORIZED -> CancelReservationResult.Failure(401, "인증 실패: 공유 비밀키가 올바르지 않습니다. (REQ-024, D-09)")
+                HttpURLConnection.HTTP_UNAUTHORIZED -> CancelReservationResult.Failure(401, ERR_AUTH)
                 HttpURLConnection.HTTP_NOT_FOUND -> CancelReservationResult.Failure(404, extractErrorMsg(body, "해당 예약을 찾을 수 없습니다."))
                 else -> CancelReservationResult.Failure(code, "서버 응답 오류 (HTTP $code)")
             }
-        } catch (e: Exception) {
-            CancelReservationResult.Failure(0, if (e is IOException) "서버에 연결할 수 없습니다: ${e.message}" else "예약 취소 중 오류: ${e.message}")
-        }
+        } catch (e: Exception) { CancelReservationResult.Failure(0, ioErrMsg(e, "예약 취소 중 오류")) }
     }
 
     /** 쉬는 기간을 서버에 등록한다 (POST /api/off-periods, REQ-011). */
@@ -178,12 +165,10 @@ class ServerClient(
             when (code) {
                 HttpURLConnection.HTTP_CREATED, HttpURLConnection.HTTP_OK -> JSONObject(body).let { CreateOffPeriodResult.Success(it.optString("id", ""), it.optString("start_at", cleanStart), it.optString("end_at", cleanEnd)) }
                 HttpURLConnection.HTTP_BAD_REQUEST -> CreateOffPeriodResult.Failure(400, extractErrorMsg(body, "종료 일시는 시작 일시보다 뒤여야 합니다."))
-                HttpURLConnection.HTTP_UNAUTHORIZED -> CreateOffPeriodResult.Failure(401, "인증 실패: 공유 비밀키가 올바르지 않습니다. (REQ-024, D-09)")
+                HttpURLConnection.HTTP_UNAUTHORIZED -> CreateOffPeriodResult.Failure(401, ERR_AUTH)
                 else -> CreateOffPeriodResult.Failure(code, "서버 응답 오류 (HTTP $code)")
             }
-        } catch (e: Exception) {
-            CreateOffPeriodResult.Failure(0, if (e is IOException) "서버에 연결할 수 없습니다: ${e.message}" else "쉬는 기간 등록 중 오류: ${e.message}")
-        }
+        } catch (e: Exception) { CreateOffPeriodResult.Failure(0, ioErrMsg(e, "쉬는 기간 등록 중 오류")) }
     }
 
     /** 쉬는 기간을 삭제한다 (DELETE /api/off-periods/{id}, REQ-013, LB-022). */
@@ -196,12 +181,10 @@ class ServerClient(
             when (code) {
                 HttpURLConnection.HTTP_OK -> JSONObject(body).let { DeleteOffPeriodResult.Success(it.optString("id", cleanId)) }
                 HttpURLConnection.HTTP_NOT_FOUND -> DeleteOffPeriodResult.Failure(404, extractErrorMsg(body, "해당 쉬는 기간을 찾을 수 없습니다."))
-                HttpURLConnection.HTTP_UNAUTHORIZED -> DeleteOffPeriodResult.Failure(401, "인증 실패: 공유 비밀키가 올바르지 않습니다. (REQ-024, D-09)")
+                HttpURLConnection.HTTP_UNAUTHORIZED -> DeleteOffPeriodResult.Failure(401, ERR_AUTH)
                 else -> DeleteOffPeriodResult.Failure(code, extractErrorMsg(body, "서버 응답 오류 (HTTP $code)"))
             }
-        } catch (e: Exception) {
-            DeleteOffPeriodResult.Failure(0, if (e is IOException) "서버에 연결할 수 없습니다: ${e.message}" else "쉬는 기간 삭제 중 오류: ${e.message}")
-        }
+        } catch (e: Exception) { DeleteOffPeriodResult.Failure(0, ioErrMsg(e, "쉬는 기간 삭제 중 오류")) }
     }
 
     /** 예약 목록을 서버에서 조회한다 (GET /api/reservations, REQ-002). */
@@ -214,12 +197,10 @@ class ServerClient(
                 HttpURLConnection.HTTP_OK -> (JSONObject(body).optJSONArray("reservations") ?: JSONArray()).let { arr ->
                     FetchReservationsResult.Success((0 until arr.length()).map { ReservationItem.fromJson(arr.getJSONObject(it)) })
                 }
-                HttpURLConnection.HTTP_UNAUTHORIZED -> FetchReservationsResult.Failure(401, "인증 실패: 공유 비밀키가 올바르지 않습니다. (REQ-024, D-09)")
+                HttpURLConnection.HTTP_UNAUTHORIZED -> FetchReservationsResult.Failure(401, ERR_AUTH)
                 else -> FetchReservationsResult.Failure(code, "서버 응답 오류 (HTTP $code)")
             }
-        } catch (e: Exception) {
-            FetchReservationsResult.Failure(0, if (e is IOException) "서버에 연결할 수 없습니다: ${e.message}" else "예약 목록 조회 중 오류: ${e.message}")
-        }
+        } catch (e: Exception) { FetchReservationsResult.Failure(0, ioErrMsg(e, "예약 목록 조회 중 오류")) }
     }
 
     /** 쉬는 기간 목록을 서버에서 조회한다 (GET /api/off-periods, REQ-012, REQ-010, D-09). */
@@ -232,12 +213,10 @@ class ServerClient(
                 HttpURLConnection.HTTP_OK -> (JSONObject(body).optJSONArray("off_periods") ?: JSONArray()).let { arr ->
                     FetchOffPeriodsResult.Success((0 until arr.length()).map { OffPeriodItem.fromJson(arr.getJSONObject(it)) })
                 }
-                HttpURLConnection.HTTP_UNAUTHORIZED -> FetchOffPeriodsResult.Failure(401, "인증 실패: 공유 비밀키가 올바르지 않습니다. (REQ-024, D-09)")
+                HttpURLConnection.HTTP_UNAUTHORIZED -> FetchOffPeriodsResult.Failure(401, ERR_AUTH)
                 else -> FetchOffPeriodsResult.Failure(code, "서버 응답 오류 (HTTP $code)")
             }
-        } catch (e: Exception) {
-            FetchOffPeriodsResult.Failure(0, if (e is IOException) "서버에 연결할 수 없습니다: ${e.message}" else "쉬는 기간 목록 조회 중 오류: ${e.message}")
-        }
+        } catch (e: Exception) { FetchOffPeriodsResult.Failure(0, ioErrMsg(e, "쉬는 기간 목록 조회 중 오류")) }
     }
 
     /** 푸시 토큰을 서버에 등록한다 (POST /api/notification-targets, REQ-022, D-12). */
@@ -251,12 +230,10 @@ class ServerClient(
                 HttpURLConnection.HTTP_CREATED, HttpURLConnection.HTTP_OK -> JSONObject(body).let {
                     RegisterNotificationResult.Success(it.optString("device_id", cleanDevice), it.optString("push_token", cleanToken))
                 }
-                HttpURLConnection.HTTP_UNAUTHORIZED -> RegisterNotificationResult.Failure(401, "인증 실패: 공유 비밀키가 올바르지 않습니다. (REQ-024, D-09)")
+                HttpURLConnection.HTTP_UNAUTHORIZED -> RegisterNotificationResult.Failure(401, ERR_AUTH)
                 else -> RegisterNotificationResult.Failure(code, extractErrorMsg(body, "서버 응답 오류 (HTTP $code)"))
             }
-        } catch (e: Exception) {
-            RegisterNotificationResult.Failure(0, if (e is IOException) "서버에 연결할 수 없습니다: ${e.message}" else "기기 등록 중 오류: ${e.message}")
-        }
+        } catch (e: Exception) { RegisterNotificationResult.Failure(0, ioErrMsg(e, "기기 등록 중 오류")) }
     }
 
     /** 시험 알림을 등록된 모든 기기(두 대: S21+, 폴드8)에 발송한다 (POST /api/notify/test, D-12, done_when). */
@@ -269,12 +246,38 @@ class ServerClient(
                 HttpURLConnection.HTTP_OK -> JSONObject(responseBody).let {
                     SendNotificationResult.Success(it.optInt("total_targets", 0), it.optInt("success_count", 0))
                 }
-                HttpURLConnection.HTTP_UNAUTHORIZED -> SendNotificationResult.Failure(401, "인증 실패: 공유 비밀키가 올바르지 않습니다. (REQ-024, D-09)")
+                HttpURLConnection.HTTP_UNAUTHORIZED -> SendNotificationResult.Failure(401, ERR_AUTH)
                 else -> SendNotificationResult.Failure(code, extractErrorMsg(responseBody, "서버 응답 오류 (HTTP $code)"))
             }
-        } catch (e: Exception) {
-            SendNotificationResult.Failure(0, if (e is IOException) "서버에 연결할 수 없습니다: ${e.message}" else "시험 알림 발송 중 오류: ${e.message}")
-        }
+        } catch (e: Exception) { SendNotificationResult.Failure(0, ioErrMsg(e, "시험 알림 발송 중 오류")) }
+    }
+
+    /** 물 관리 추적 상태를 조회한다 (GET /api/water-tracker, REQ-019, REQ-021). */
+    fun fetchWaterTracker(serverUrl: String, sharedSecret: String): WaterTrackerResult {
+        val cleanUrl = normalizeUrl(serverUrl); val cleanSecret = sharedSecret.trim()
+        if (cleanUrl.isEmpty() || cleanSecret.isEmpty()) return WaterTrackerResult.Failure(400, "서버 주소와 공유 비밀키가 필요합니다.")
+        return try {
+            val (code, body) = getJson("$cleanUrl/api/water-tracker", cleanSecret)
+            when (code) {
+                HttpURLConnection.HTTP_OK -> WaterTrackerResult.Success(WaterTrackerItem.fromJson(JSONObject(body)))
+                HttpURLConnection.HTTP_UNAUTHORIZED -> WaterTrackerResult.Failure(401, ERR_AUTH)
+                else -> WaterTrackerResult.Failure(code, extractErrorMsg(body, "서버 응답 오류 (HTTP $code)"))
+            }
+        } catch (e: Exception) { WaterTrackerResult.Failure(0, ioErrMsg(e, "물 추적 상태 조회 오류")) }
+    }
+
+    /** '물 채움' 버튼 클릭 시 물걸레 청소 횟수를 0으로 초기화한다 (POST /api/water-tracker/refill, REQ-019, D-14). */
+    fun refillWater(serverUrl: String, sharedSecret: String): WaterTrackerResult {
+        val cleanUrl = normalizeUrl(serverUrl); val cleanSecret = sharedSecret.trim()
+        if (cleanUrl.isEmpty() || cleanSecret.isEmpty()) return WaterTrackerResult.Failure(400, "서버 주소와 공유 비밀키가 필요합니다.")
+        return try {
+            val (code, body) = postJson("$cleanUrl/api/water-tracker/refill", cleanSecret, JSONObject())
+            when (code) {
+                HttpURLConnection.HTTP_OK -> WaterTrackerResult.Success(WaterTrackerItem.fromJson(JSONObject(body)))
+                HttpURLConnection.HTTP_UNAUTHORIZED -> WaterTrackerResult.Failure(401, ERR_AUTH)
+                else -> WaterTrackerResult.Failure(code, extractErrorMsg(body, "서버 응답 오류 (HTTP $code)"))
+            }
+        } catch (e: Exception) { WaterTrackerResult.Failure(0, ioErrMsg(e, "물 채움 처리 중 오류")) }
     }
 
     private fun readStream(inputStream: InputStream): String =

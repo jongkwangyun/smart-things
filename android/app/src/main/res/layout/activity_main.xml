@@ -99,29 +99,22 @@
                     android:padding="16dp">
                     <TextView
                         android:id="@+id/textStatusLabel"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
                         android:text="@string/status_label"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="12sp" />
+                        android:textColor="@color/text_secondary" android:textSize="12sp" />
                     <TextView
                         android:id="@+id/textConnectionStatus"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
                         android:text="@string/status_disconnected"
                         android:textColor="@color/status_disconnected"
-                        android:textSize="20sp"
-                        android:textStyle="bold" />
+                        android:textSize="20sp" android:textStyle="bold" />
                     <TextView
                         android:id="@+id/textStatusDetail"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="12sp"
-                        android:visibility="gone"
-                        tools:text="서버 연결 대기 중" />
+                        android:textColor="@color/text_secondary" android:textSize="12sp"
+                        android:visibility="gone" tools:text="서버 연결 대기 중" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
@@ -272,6 +265,15 @@
                         android:layout_width="match_parent" android:layout_height="48dp"
                         android:layout_marginTop="8dp"
                         android:text="@string/btn_off_period_list"
+                        android:textColor="@color/primary"
+                        android:textSize="14sp" android:textStyle="bold"
+                        app:cornerRadius="8dp" app:strokeColor="@color/primary" />
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnWaterManagement"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="match_parent" android:layout_height="48dp"
+                        android:layout_marginTop="8dp"
+                        android:text="@string/btn_water_management"
                         android:textColor="@color/primary"
                         android:textSize="14sp" android:textStyle="bold"
                         app:cornerRadius="8dp" app:strokeColor="@color/primary" />

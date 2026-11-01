@@ -16,10 +16,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
-import com.smartthings.cleaner.model.CancelReservationResult
-import com.smartthings.cleaner.model.FetchReservationsResult
-import com.smartthings.cleaner.model.ReservationItem
-import com.smartthings.cleaner.model.UpdateReservationResult
+import com.smartthings.cleaner.model.*
 import com.smartthings.cleaner.network.ServerClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -69,26 +66,21 @@ class ReservationListActivity : AppCompatActivity() {
             !reason.isNullOrBlank() -> "실패 이유: $reason"
             else -> "실패 이유: 원인 미확인"
         }
+
+        fun isDateTimeInOffPeriods(dateTime: ZonedDateTime, offPeriods: List<OffPeriodItem>): Boolean =
+            OffPeriodItem.isDateTimeInOffPeriods(dateTime, offPeriods)
     }
 
     private val serverClient = ServerClient()
-    private lateinit var btnRefresh: MaterialButton
-    private lateinit var btnAddReservation: MaterialButton
-    private lateinit var progressBar: ProgressBar
-    private lateinit var cardError: MaterialCardView
-    private lateinit var textErrorMessage: TextView
-    private lateinit var textUpcomingHeader: TextView
-    private lateinit var textUpcomingEmpty: TextView
-    private lateinit var layoutUpcomingList: LinearLayout
-    private lateinit var textPastHeader: TextView
-    private lateinit var textPastEmpty: TextView
-    private lateinit var layoutPastList: LinearLayout
+    private lateinit var btnRefresh: MaterialButton; private lateinit var btnAddReservation: MaterialButton
+    private lateinit var progressBar: ProgressBar; private lateinit var cardError: MaterialCardView; private lateinit var textErrorMessage: TextView
+    private lateinit var textUpcomingHeader: TextView; private lateinit var textUpcomingEmpty: TextView; private lateinit var layoutUpcomingList: LinearLayout
+    private lateinit var textPastHeader: TextView; private lateinit var textPastEmpty: TextView; private lateinit var layoutPastList: LinearLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_reservation_list)
-        initViews()
-        loadReservations()
+        initViews(); loadReservations()
     }
 
     override fun onResume() {
@@ -97,24 +89,15 @@ class ReservationListActivity : AppCompatActivity() {
     }
 
     private fun initViews() {
-        btnRefresh = findViewById(R.id.btnRefresh)
-        btnAddReservation = findViewById(R.id.btnAddReservation)
-        progressBar = findViewById(R.id.progressBar)
-        cardError = findViewById(R.id.cardError)
-        textErrorMessage = findViewById(R.id.textErrorMessage)
-        textUpcomingHeader = findViewById(R.id.textUpcomingHeader)
-        textUpcomingEmpty = findViewById(R.id.textUpcomingEmpty)
-        layoutUpcomingList = findViewById(R.id.layoutUpcomingList)
-        textPastHeader = findViewById(R.id.textPastHeader)
-        textPastEmpty = findViewById(R.id.textPastEmpty)
-        layoutPastList = findViewById(R.id.layoutPastList)
-
+        btnRefresh = findViewById(R.id.btnRefresh); btnAddReservation = findViewById(R.id.btnAddReservation)
+        progressBar = findViewById(R.id.progressBar); cardError = findViewById(R.id.cardError); textErrorMessage = findViewById(R.id.textErrorMessage)
+        textUpcomingHeader = findViewById(R.id.textUpcomingHeader); textUpcomingEmpty = findViewById(R.id.textUpcomingEmpty); layoutUpcomingList = findViewById(R.id.layoutUpcomingList)
+        textPastHeader = findViewById(R.id.textPastHeader); textPastEmpty = findViewById(R.id.textPastEmpty); layoutPastList = findViewById(R.id.layoutPastList)
         btnRefresh.setOnClickListener { loadReservations() }
         btnAddReservation.setOnClickListener {
             val (serverUrl, sharedSecret) = getCredentials()
             startActivity(Intent(this, CreateReservationActivity::class.java).apply {
-                putExtra("EXTRA_SERVER_URL", serverUrl)
-                putExtra("EXTRA_SHARED_SECRET", sharedSecret)
+                putExtra("EXTRA_SERVER_URL", serverUrl); putExtra("EXTRA_SHARED_SECRET", sharedSecret)
             })
         }
     }
@@ -130,14 +113,11 @@ class ReservationListActivity : AppCompatActivity() {
             showError("서버 주소와 비밀키가 설정되지 않았습니다. 메인 화면에서 먼저 서버에 연결해 주세요.")
             return
         }
-        progressBar.visibility = View.VISIBLE
-        btnRefresh.isEnabled = false
-        cardError.visibility = View.GONE
+        progressBar.visibility = View.VISIBLE; btnRefresh.isEnabled = false; cardError.visibility = View.GONE
         lifecycleScope.launch(Dispatchers.IO) {
             val result = serverClient.fetchReservations(serverUrl, sharedSecret)
             withContext(Dispatchers.Main) {
-                progressBar.visibility = View.GONE
-                btnRefresh.isEnabled = true
+                progressBar.visibility = View.GONE; btnRefresh.isEnabled = true
                 handleFetchResult(result)
             }
         }
@@ -146,8 +126,7 @@ class ReservationListActivity : AppCompatActivity() {
     fun handleFetchResult(result: FetchReservationsResult) {
         when (result) {
             is FetchReservationsResult.Success -> {
-                cardError.visibility = View.GONE
-                renderReservations(result.reservations)
+                cardError.visibility = View.GONE; renderReservations(result.reservations)
             }
             is FetchReservationsResult.Failure -> {
                 val errorMsg = when (result.statusCode) {
@@ -160,10 +139,7 @@ class ReservationListActivity : AppCompatActivity() {
         }
     }
 
-    private fun showError(message: String) {
-        cardError.visibility = View.VISIBLE
-        textErrorMessage.text = message
-    }
+    private fun showError(message: String) { cardError.visibility = View.VISIBLE; textErrorMessage.text = message }
 
     fun renderReservations(reservations: List<ReservationItem>) {
         val (upcoming, past) = partitionReservations(reservations)
@@ -180,21 +156,16 @@ class ReservationListActivity : AppCompatActivity() {
             val inflater = LayoutInflater.from(this)
             for (item in items) {
                 val itemView = inflater.inflate(R.layout.item_reservation, container, false)
-                bindItemView(itemView, item)
-                container.addView(itemView)
+                bindItemView(itemView, item); container.addView(itemView)
             }
         }
     }
 
     fun bindItemView(view: View, item: ReservationItem) {
-        val textScheduledAt = view.findViewById<TextView>(R.id.textScheduledAt)
-        val textStatusBadge = view.findViewById<TextView>(R.id.textStatusBadge)
-        val cardStatusBadge = view.findViewById<MaterialCardView>(R.id.cardStatusBadge)
-        val textFailureReason = view.findViewById<TextView>(R.id.textFailureReason)
-        val textReservationId = view.findViewById<TextView>(R.id.textReservationId)
-        val textOffPeriodNotice = view.findViewById<TextView>(R.id.textOffPeriodNotice)
-        val btnEditReservation = view.findViewById<MaterialButton?>(R.id.btnEditReservation)
-        val btnCancelReservation = view.findViewById<MaterialButton?>(R.id.btnCancelReservation)
+        val textScheduledAt = view.findViewById<TextView>(R.id.textScheduledAt); val textReservationId = view.findViewById<TextView>(R.id.textReservationId)
+        val textStatusBadge = view.findViewById<TextView>(R.id.textStatusBadge); val cardStatusBadge = view.findViewById<MaterialCardView>(R.id.cardStatusBadge)
+        val textFailureReason = view.findViewById<TextView>(R.id.textFailureReason); val textOffPeriodNotice = view.findViewById<TextView>(R.id.textOffPeriodNotice)
+        val btnEditReservation = view.findViewById<MaterialButton?>(R.id.btnEditReservation); val btnCancelReservation = view.findViewById<MaterialButton?>(R.id.btnCancelReservation)
 
         textScheduledAt.text = item.formatKstDisplay()
         textReservationId.text = "ID: ${item.id}"
@@ -206,8 +177,7 @@ class ReservationListActivity : AppCompatActivity() {
         cardStatusBadge.strokeColor = ContextCompat.getColor(this, style.strokeColorRes)
 
         if (item.status == ReservationItem.STATUS_FAILED) {
-            textFailureReason.visibility = View.VISIBLE
-            textFailureReason.text = formatFailureReasonText(item.failureReason, item.lastDeviceState)
+            textFailureReason.visibility = View.VISIBLE; textFailureReason.text = formatFailureReasonText(item.failureReason, item.lastDeviceState)
         } else {
             textFailureReason.visibility = View.GONE
         }
@@ -228,12 +198,9 @@ class ReservationListActivity : AppCompatActivity() {
     }
 
     fun showCancelConfirmDialog(item: ReservationItem) {
-        AlertDialog.Builder(this)
-            .setTitle("예약 취소")
-            .setMessage("예약을 취소하시겠습니까?")
+        AlertDialog.Builder(this).setTitle("예약 취소").setMessage("예약을 취소하시겠습니까?")
             .setPositiveButton("확인") { _, _ -> performCancelReservation(item.id) }
-            .setNegativeButton("닫기", null)
-            .show()
+            .setNegativeButton("닫기", null).show()
     }
 
     fun performCancelReservation(reservationId: String) {
@@ -245,10 +212,7 @@ class ReservationListActivity : AppCompatActivity() {
             withContext(Dispatchers.Main) {
                 progressBar.visibility = View.GONE
                 when (result) {
-                    is CancelReservationResult.Success -> {
-                        Toast.makeText(this@ReservationListActivity, result.message, Toast.LENGTH_SHORT).show()
-                        loadReservations()
-                    }
+                    is CancelReservationResult.Success -> { Toast.makeText(this@ReservationListActivity, result.message, Toast.LENGTH_SHORT).show(); loadReservations() }
                     is CancelReservationResult.Failure -> showError(result.message)
                 }
             }
@@ -257,11 +221,7 @@ class ReservationListActivity : AppCompatActivity() {
 
     fun showEditPickers(item: ReservationItem) {
         val kstZone = ZoneId.of("Asia/Seoul")
-        val initialDateTime = try {
-            ZonedDateTime.parse(item.scheduledAt).withZoneSameInstant(kstZone)
-        } catch (_: Exception) {
-            ZonedDateTime.now(kstZone).plusDays(1).withHour(10).withMinute(0)
-        }
+        val initialDateTime = try { ZonedDateTime.parse(item.scheduledAt).withZoneSameInstant(kstZone) } catch (_: Exception) { ZonedDateTime.now(kstZone).plusDays(1).withHour(10).withMinute(0) }
         var chosenDate = initialDateTime.toLocalDate()
         DatePickerDialog(this, { _, year, month, dayOfMonth ->
             chosenDate = LocalDate.of(year, month + 1, dayOfMonth)
@@ -269,24 +229,51 @@ class ReservationListActivity : AppCompatActivity() {
                 val newDt = ZonedDateTime.of(chosenDate, LocalTime.of(hourOfDay, minute), kstZone)
                 if (!newDt.isAfter(ZonedDateTime.now(kstZone))) return@TimePickerDialog showError("과거 시각은 예약할 수 없습니다.")
                 val isoStr = newDt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:00+09:00", Locale.ROOT))
-                performUpdateReservation(item.id, isoStr)
+                checkAndPerformUpdate(item.id, newDt, isoStr)
             }, initialDateTime.hour, initialDateTime.minute, true).show()
         }, chosenDate.year, chosenDate.monthValue - 1, chosenDate.dayOfMonth).show()
     }
 
-    fun performUpdateReservation(reservationId: String, newScheduledAt: String) {
+    fun checkAndPerformUpdate(reservationId: String, newDt: ZonedDateTime, isoStr: String) {
         val (serverUrl, sharedSecret) = getCredentials()
         if (serverUrl.isBlank() || sharedSecret.isBlank()) return showError("서버 주소와 비밀키가 설정되지 않았습니다.")
         progressBar.visibility = View.VISIBLE
         lifecycleScope.launch(Dispatchers.IO) {
-            val result = serverClient.updateReservation(serverUrl, sharedSecret, reservationId, newScheduledAt)
+            val offPeriodsRes = serverClient.fetchOffPeriods(serverUrl, sharedSecret)
+            val offPeriods = if (offPeriodsRes is FetchOffPeriodsResult.Success) offPeriodsRes.offPeriods else emptyList()
+            val inside = isDateTimeInOffPeriods(newDt, offPeriods)
+            withContext(Dispatchers.Main) {
+                progressBar.visibility = View.GONE
+                if (inside) {
+                    showOffPeriodWarningDialog(
+                        onConfirm = { performUpdateReservation(reservationId, isoStr, allowDuringOffPeriod = true) },
+                        onCancel = { /* 취소: 저장하지 않음 (Done When) */ }
+                    )
+                } else {
+                    performUpdateReservation(reservationId, isoStr, allowDuringOffPeriod = false)
+                }
+            }
+        }
+    }
+
+    fun showOffPeriodWarningDialog(onConfirm: () -> Unit, onCancel: () -> Unit = {}) {
+        AlertDialog.Builder(this).setTitle(getString(R.string.title_off_period_warning))
+            .setMessage(getString(R.string.msg_off_period_reservation_warning))
+            .setPositiveButton(getString(R.string.btn_ok)) { _, _ -> onConfirm() }
+            .setNegativeButton(getString(R.string.btn_cancel)) { dialog, _ -> dialog.dismiss(); onCancel() }
+            .setCancelable(false).show()
+    }
+
+    fun performUpdateReservation(reservationId: String, newScheduledAt: String, allowDuringOffPeriod: Boolean = false) {
+        val (serverUrl, sharedSecret) = getCredentials()
+        if (serverUrl.isBlank() || sharedSecret.isBlank()) return showError("서버 주소와 비밀키가 설정되지 않았습니다.")
+        progressBar.visibility = View.VISIBLE
+        lifecycleScope.launch(Dispatchers.IO) {
+            val result = serverClient.updateReservation(serverUrl, sharedSecret, reservationId, newScheduledAt, allowDuringOffPeriod)
             withContext(Dispatchers.Main) {
                 progressBar.visibility = View.GONE
                 when (result) {
-                    is UpdateReservationResult.Success -> {
-                        Toast.makeText(this@ReservationListActivity, result.message, Toast.LENGTH_SHORT).show()
-                        loadReservations()
-                    }
+                    is UpdateReservationResult.Success -> { Toast.makeText(this@ReservationListActivity, result.message, Toast.LENGTH_SHORT).show(); loadReservations() }
                     is UpdateReservationResult.Failure -> showError(result.message)
                 }
             }

@@ -497,7 +497,7 @@
     {
       "id": "LB-030",
       "reqs": ["REQ-014"],
-      "status": "todo",
+      "status": "done",
       "priority": "검증",
       "category": "쉬는기간",
       "title": "쉬는 기간 내 예약 생성·수정 시 경고",
@@ -506,9 +506,9 @@
       "parent": null,
       "deps": ["LB-013", "LB-018", "LB-020"],
       "doc": null,
-      "done_at": null,
+      "done_at": "2026-11-01",
       "must": "막지 않고 경고 후 허용한다 (D-05). 허용 여부를 예약에 저장한다.",
-      "memo": null
+      "memo": "[2026-11-01] 검증 완료: CreateReservationActivity 및 ReservationListActivity 내 쉬는 기간 검사 및 경고 다이얼로그 연동. '확인' 시 allow_during_off_period=true로 저장 및 AutoStopWatcher 자동 정지 제외 연동(D-05, REQ-014, REQ-015), '취소' 시 미저장 확인(Done When). ServerClient allow_during_off_period 파라미터 추가. tests/test_reservation_off_period_warning.py 포함 225개 전체 테스트 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인."
     },
     {
       "id": "LB-031",

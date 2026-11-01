@@ -30,6 +30,9 @@ data class OffPeriodItem(
         private val DISPLAY_FORMATTER =
             DateTimeFormatter.ofPattern("yyyy년 MM월 dd일 HH:mm (KST)", Locale.KOREAN)
 
+        fun isDateTimeInOffPeriods(dateTime: ZonedDateTime, offPeriods: List<OffPeriodItem>): Boolean =
+            offPeriods.any { it.contains(dateTime) }
+
         fun fromJson(json: JSONObject): OffPeriodItem {
             return OffPeriodItem(
                 id = json.optString("id", ""),
@@ -38,6 +41,12 @@ data class OffPeriodItem(
                 createdAt = json.optString("created_at", "")
             )
         }
+    }
+
+    fun contains(dateTime: ZonedDateTime): Boolean {
+        val start = parseStartAt() ?: return false
+        val end = parseEndAt() ?: return false
+        return !dateTime.isBefore(start) && !dateTime.isAfter(end)
     }
 
     fun parseStartAt(): ZonedDateTime? {

@@ -105,4 +105,8 @@
     <!-- LB-018 예약 일시 수정 리소스 (REQ-003) -->
     <string name="btn_edit_reservation">수정</string>
     <string name="msg_confirm_reservation_updated">예약이 수정되었습니다</string>
+
+    <!-- LB-030 쉬는 기간 내 예약 생성·수정 시 경고 리소스 (REQ-014, D-05) -->
+    <string name="title_off_period_warning">쉬는 기간 예약 경고</string>
+    <string name="msg_off_period_reservation_warning">선택한 시각은 등록된 쉬는 기간에 포함되어 있습니다. 그래도 예약을 진행하시겠습니까?</string>
 </resources>

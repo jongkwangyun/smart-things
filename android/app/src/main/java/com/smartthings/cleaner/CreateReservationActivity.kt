@@ -11,7 +11,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
-import com.smartthings.cleaner.model.CreateReservationResult
+import com.smartthings.cleaner.model.*
 import com.smartthings.cleaner.network.ServerClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -63,6 +63,11 @@ class CreateReservationActivity : AppCompatActivity() {
         fun formatIsoKst(dateTime: ZonedDateTime): String {
             return dateTime.format(ISO_FORMATTER)
         }
+
+        fun isDateTimeInOffPeriods(
+            dateTime: ZonedDateTime,
+            offPeriods: List<OffPeriodItem>
+        ): Boolean = OffPeriodItem.isDateTimeInOffPeriods(dateTime, offPeriods)
     }
 
     private val serverClient = ServerClient()
@@ -142,29 +147,13 @@ class CreateReservationActivity : AppCompatActivity() {
     }
 
     private fun showDatePicker() {
-        DatePickerDialog(
-            this,
-            { _, year, month, dayOfMonth ->
-                selectedDate = LocalDate.of(year, month + 1, dayOfMonth)
-                updateDateTimePreview()
-            },
-            selectedDate.year,
-            selectedDate.monthValue - 1,
-            selectedDate.dayOfMonth
-        ).show()
+        DatePickerDialog(this, { _, y, m, d -> selectedDate = LocalDate.of(y, m + 1, d); updateDateTimePreview() },
+            selectedDate.year, selectedDate.monthValue - 1, selectedDate.dayOfMonth).show()
     }
 
     private fun showTimePicker() {
-        TimePickerDialog(
-            this,
-            { _, hourOfDay, minute ->
-                selectedTime = LocalTime.of(hourOfDay, minute)
-                updateDateTimePreview()
-            },
-            selectedTime.hour,
-            selectedTime.minute,
-            true
-        ).show()
+        TimePickerDialog(this, { _, h, m -> selectedTime = LocalTime.of(h, m); updateDateTimePreview() },
+            selectedTime.hour, selectedTime.minute, true).show()
     }
 
     fun updateDateTimePreview() {
@@ -188,8 +177,6 @@ class CreateReservationActivity : AppCompatActivity() {
     private fun performSaveReservation() {
         val zdt = getSelectedZonedDateTime()
         val validity = checkDateTimeValidity(zdt)
-
-        // 과거 시각 검증: 과거 시각을 고르면 저장되지 않고 안내가 보인다 (done_when)
         if (validity is ValidationState.Past) {
             cardValidationWarning.visibility = View.VISIBLE
             textValidationMessage.text = getString(R.string.msg_error_past_datetime)
@@ -197,11 +184,8 @@ class CreateReservationActivity : AppCompatActivity() {
             return
         }
 
-        val serverUrl = intent.getStringExtra("EXTRA_SERVER_URL")
-            ?: ServerClient.getSavedServerUrl(this)
-        val sharedSecret = intent.getStringExtra("EXTRA_SHARED_SECRET")
-            ?: ServerClient.getSavedSharedSecret(this)
-
+        val serverUrl = intent.getStringExtra("EXTRA_SERVER_URL") ?: ServerClient.getSavedServerUrl(this)
+        val sharedSecret = intent.getStringExtra("EXTRA_SHARED_SECRET") ?: ServerClient.getSavedSharedSecret(this)
         if (serverUrl.isBlank() || sharedSecret.isBlank()) {
             cardValidationWarning.visibility = View.VISIBLE
             textValidationMessage.text = getString(R.string.msg_error_server_not_configured)
@@ -209,22 +193,57 @@ class CreateReservationActivity : AppCompatActivity() {
         }
 
         setSaving(true)
+        lifecycleScope.launch(Dispatchers.IO) {
+            val offPeriodsRes = serverClient.fetchOffPeriods(serverUrl, sharedSecret)
+            val offPeriods = if (offPeriodsRes is FetchOffPeriodsResult.Success) offPeriodsRes.offPeriods else emptyList()
+            val insideOffPeriod = isDateTimeInOffPeriods(zdt, offPeriods)
 
+            withContext(Dispatchers.Main) {
+                if (insideOffPeriod) {
+                    setSaving(false)
+                    showOffPeriodWarningDialog(
+                        onConfirm = { executeCreateReservation(serverUrl, sharedSecret, zdt, true) },
+                        onCancel = { /* 취소: 저장하지 않음 (Done When) */ }
+                    )
+                } else {
+                    executeCreateReservation(serverUrl, sharedSecret, zdt, false)
+                }
+            }
+        }
+    }
+
+    fun showOffPeriodWarningDialog(onConfirm: () -> Unit, onCancel: () -> Unit = {}) {
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.title_off_period_warning))
+            .setMessage(getString(R.string.msg_off_period_reservation_warning))
+            .setPositiveButton(getString(R.string.btn_ok)) { _, _ -> onConfirm() }
+            .setNegativeButton(getString(R.string.btn_cancel)) { dialog, _ ->
+                dialog.dismiss()
+                onCancel()
+            }
+            .setCancelable(false)
+            .show()
+    }
+
+    private fun executeCreateReservation(
+        serverUrl: String,
+        sharedSecret: String,
+        zdt: ZonedDateTime,
+        allowDuringOffPeriod: Boolean,
+    ) {
+        setSaving(true)
         lifecycleScope.launch(Dispatchers.IO) {
             val isoString = formatIsoKst(zdt)
-            val result = serverClient.createReservation(serverUrl, sharedSecret, isoString)
-
+            val result = serverClient.createReservation(serverUrl, sharedSecret, isoString, allowDuringOffPeriod)
             withContext(Dispatchers.Main) {
                 setSaving(false)
                 when (result) {
                     is CreateReservationResult.Success -> {
-                        // 저장하면 확인 메시지가 뜨고 (done_when)
                         cardValidationWarning.visibility = View.GONE
                         cardConfirmation.visibility = View.VISIBLE
                         textConfirmationMessage.text = getString(R.string.msg_confirm_reservation_created)
                         textConfirmationDetail.text =
                             "예약 ID: ${result.id}\n상태: ${result.status}\n일시: ${result.scheduledAt}"
-
                         showConfirmationDialog(getString(R.string.msg_confirm_reservation_created))
                     }
                     is CreateReservationResult.Failure -> {

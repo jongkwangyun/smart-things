@@ -1,26 +1,10 @@
 package com.smartthings.cleaner.network
 
 import android.content.Context
-import com.smartthings.cleaner.model.CancelReservationResult
-import com.smartthings.cleaner.model.ConnectionError
-import com.smartthings.cleaner.model.ConnectionState
-import com.smartthings.cleaner.model.CreateOffPeriodResult
-import com.smartthings.cleaner.model.CreateReservationResult
-import com.smartthings.cleaner.model.DeleteOffPeriodResult
-import com.smartthings.cleaner.model.FetchOffPeriodsResult
-import com.smartthings.cleaner.model.FetchReservationsResult
-import com.smartthings.cleaner.model.OffPeriodItem
-import com.smartthings.cleaner.model.RegisterNotificationResult
-import com.smartthings.cleaner.model.ReservationItem
-import com.smartthings.cleaner.model.SendNotificationResult
-import com.smartthings.cleaner.model.UpdateReservationResult
+import com.smartthings.cleaner.model.*
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.IOException
-import java.io.InputStream
-import java.io.InputStreamReader
-import java.io.OutputStreamWriter
+import java.io.*
 import java.net.HttpURLConnection
 import java.net.MalformedURLException
 import java.net.URL
@@ -114,12 +98,18 @@ class ServerClient(
         }
 
     /** 1회성 청소 예약을 서버에 등록한다 (POST /api/reservations, REQ-001, D-03). */
-    fun createReservation(serverUrl: String, sharedSecret: String, scheduledAtIso: String): CreateReservationResult {
+    fun createReservation(
+        serverUrl: String,
+        sharedSecret: String,
+        scheduledAtIso: String,
+        allowDuringOffPeriod: Boolean = false
+    ): CreateReservationResult {
         val cleanUrl = normalizeUrl(serverUrl); val cleanSecret = sharedSecret.trim(); val cleanScheduledAt = scheduledAtIso.trim()
         if (cleanUrl.isEmpty() || cleanSecret.isEmpty()) return CreateReservationResult.Failure(400, "서버 주소와 공유 비밀키가 필요합니다.")
         if (cleanScheduledAt.isEmpty()) return CreateReservationResult.Failure(400, "예약 일시가 지정되지 않았습니다.")
         return try {
-            val (code, body) = postJson("$cleanUrl/api/reservations", cleanSecret, JSONObject().apply { put("scheduled_at", cleanScheduledAt) })
+            val payload = JSONObject().put("scheduled_at", cleanScheduledAt).put("allow_during_off_period", allowDuringOffPeriod)
+            val (code, body) = postJson("$cleanUrl/api/reservations", cleanSecret, payload)
             when (code) {
                 HttpURLConnection.HTTP_CREATED, HttpURLConnection.HTTP_OK -> JSONObject(body).let {
                     CreateReservationResult.Success(it.optString("id", ""), it.optString("scheduled_at", it.optString("reserved_at", cleanScheduledAt)), it.optString("status", "예정"))
@@ -134,12 +124,19 @@ class ServerClient(
     }
 
     /** 1회성 청소 예약 일시를 수정한다 (PUT /api/reservations/{id}, REQ-003, LB-018). */
-    fun updateReservation(serverUrl: String, sharedSecret: String, reservationId: String, newScheduledAt: String): UpdateReservationResult {
+    fun updateReservation(
+        serverUrl: String,
+        sharedSecret: String,
+        reservationId: String,
+        newScheduledAt: String,
+        allowDuringOffPeriod: Boolean = false
+    ): UpdateReservationResult {
         val cleanUrl = normalizeUrl(serverUrl); val cleanSecret = sharedSecret.trim(); val cleanId = reservationId.trim(); val cleanScheduledAt = newScheduledAt.trim()
         if (cleanUrl.isEmpty() || cleanSecret.isEmpty()) return UpdateReservationResult.Failure(400, "서버 주소와 공유 비밀키가 필요합니다.")
         if (cleanId.isEmpty() || cleanScheduledAt.isEmpty()) return UpdateReservationResult.Failure(400, "예약 ID와 새 예약 일시가 필요합니다.")
         return try {
-            val (code, body) = putJson("$cleanUrl/api/reservations/$cleanId", cleanSecret, JSONObject().apply { put("scheduled_at", cleanScheduledAt) })
+            val payload = JSONObject().put("scheduled_at", cleanScheduledAt).put("allow_during_off_period", allowDuringOffPeriod)
+            val (code, body) = putJson("$cleanUrl/api/reservations/$cleanId", cleanSecret, payload)
             when (code) {
                 HttpURLConnection.HTTP_OK -> JSONObject(body).let { UpdateReservationResult.Success(it.optString("id", cleanId), it.optString("scheduled_at", it.optString("reserved_at", cleanScheduledAt)), it.optString("status", "예정")) }
                 HttpURLConnection.HTTP_BAD_REQUEST -> UpdateReservationResult.Failure(400, extractErrorMsg(body, "과거 시각 또는 수정할 수 없는 예약입니다."))

@@ -641,7 +641,7 @@
     {
       "id": "LB-039",
       "reqs": ["REQ-020"],
-      "status": "todo",
+      "status": "done",
       "priority": "나중",
       "category": "물관리",
       "title": "물걸레 청소 횟수 N 도달 시 물 부족 알림",
@@ -650,9 +650,9 @@
       "parent": null,
       "deps": ["LB-038", "LB-011"],
       "doc": null,
-      "done_at": null,
+      "done_at": "2026-11-01",
       "must": "물걸레 청소만 센다. 같은 주기에 알림을 반복해서 보내지 않는다.",
-      "memo": null
+      "memo": "[2026-11-01] [2026-11-01] 검증 완료: server/water/service.py WaterService.record_mop_clean(is_mop=True) 구현 및 NotificationService 연동. 물 채움 후 물걸레 청소 횟수 N 도달 시 등록된 두 기기(S21+, 폴드8)로 푸시 알림 전송(Done When). 물걸레 청소만 집계(is_mop=False 카운트 제외) 및 동일 주기 중복 알림 억제(last_alerted_at >= last_refilled_at) 확인(Must). ReservationScheduler 청소 성공(_check_and_mark_success) 시 자동 연동. tests/test_water_alert.py 포함 240개 전체 테스트 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인."
     },
     {
       "id": "LB-040",
@@ -668,6 +668,22 @@
       "doc": null,
       "done_at": null,
       "must": "1 이상의 정수만 허용한다.",
+      "memo": null
+    },
+    {
+      "id": "LB-041",
+      "reqs": ["REQ-019"],
+      "status": "todo",
+      "priority": "나중",
+      "category": "물관리",
+      "title": "물통 탈착 감지 및 자동 물 채움 감지 가능 여부 조사",
+      "done_when": "docs/device-capabilities.md에 청정스테이션 및 본체 물통 탈착 관련 속성/이벤트 지원 여부와 자동 물 채움 감지 결론이 기록된다",
+      "where": "docs/device-capabilities.md",
+      "parent": null,
+      "deps": [],
+      "doc": "SPEC.md#assumptions",
+      "done_at": null,
+      "must": "실제 스마트싱스 API 상태 및 이벤트 응답을 근거로 판정하며 추정하지 않는다.",
       "memo": null
     }
   ]

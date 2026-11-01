@@ -78,7 +78,7 @@ class TestReservationOffPeriodWarning(unittest.TestCase):
 
     def test_server_persistence_create_and_update(self) -> None:
         """Must rule: 허용 여부를 예약에 저장한다 (DB 영구 저장 및 API 응답 반환)."""
-        future = self.now + timedelta(hours=2)
+        future = self.now + timedelta(days=2)
         payload = {"scheduled_at": format_kst(future), "allow_during_off_period": True}
         c, body = http_req(self.server, "POST", "/api/reservations", payload)
         self.assertEqual(c, 201)

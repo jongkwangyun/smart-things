@@ -18,6 +18,7 @@ from server.time_utils import format_kst, now_kst
 if TYPE_CHECKING:
     from server.notify.service import NotificationService
     from server.off_periods.auto_stop import AutoStopWatcher
+    from server.water.service import WaterService
 
 DEFAULT_DEVICE_ID = "03431570-5acf-f89e-7b39-275ce15d3258"
 MISSED_THRESHOLD = timedelta(minutes=5)
@@ -54,6 +55,7 @@ class ReservationScheduler:
         log_file: Path | str = DEFAULT_SCHEDULER_LOG_FILE,
         notification_service: NotificationService | None = None,
         auto_stop_watcher: AutoStopWatcher | None = None,
+        water_service: WaterService | None = None,
     ) -> None:
         self.storage = storage
         self.log_file = Path(log_file)
@@ -73,6 +75,14 @@ class ReservationScheduler:
                 device_id=self.device_id,
                 notification_service=self.notification_service,
                 now_func=self.now_func,
+            )
+        if water_service is not None:
+            self.water_service = water_service
+        else:
+            from server.water.service import WaterService
+            self.water_service = WaterService(
+                storage=self.storage,
+                notification_service=self.notification_service,
             )
 
         self._stop_event = threading.Event()
@@ -167,6 +177,13 @@ class ReservationScheduler:
             except Exception as e:
                 self.logger.exception("자동 정지 워처 실행 중 오류 발생: %s", e)
 
+        if (
+            self.water_service is not None
+            and self.water_service.notification_service is None
+            and self.notification_service is not None
+        ):
+            self.water_service.notification_service = self.notification_service
+
         return executed
 
     def _mark_failure(self, r: Reservation, now: datetime) -> None:
@@ -247,6 +264,11 @@ class ReservationScheduler:
             r.last_device_state = str(op_state)
             r.updated_at = now
             self.storage.save_reservation(r)
+            if self.water_service is not None:
+                try:
+                    self.water_service.record_mop_clean(is_mop=True)
+                except Exception as e:
+                    self.logger.warning("물걸레 청소 횟수 기록 실패: %s", e)
             self.logger.info(
                 "청소 시작 확인 완료 (성공): res_id=%s, reserved_at=%s, device_id=%s, state=%s, confirmed_at=%s",
                 r.id,

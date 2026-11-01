@@ -24,8 +24,7 @@ class ServerClient(
 
         fun normalizeUrl(rawUrl: String): String = rawUrl.trim().removeSuffix("/")
         private fun prefs(c: Context) = c.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        fun saveCredentials(context: Context, serverUrl: String, sharedSecret: String) =
-            prefs(context).edit().putString(KEY_SERVER_URL, normalizeUrl(serverUrl)).putString(KEY_SHARED_SECRET, sharedSecret.trim()).apply()
+        fun saveCredentials(context: Context, serverUrl: String, sharedSecret: String) = prefs(context).edit().putString(KEY_SERVER_URL, normalizeUrl(serverUrl)).putString(KEY_SHARED_SECRET, sharedSecret.trim()).apply()
         fun getSavedServerUrl(context: Context): String = prefs(context).getString(KEY_SERVER_URL, "") ?: ""
         fun getSavedSharedSecret(context: Context): String = prefs(context).getString(KEY_SHARED_SECRET, "") ?: ""
     }
@@ -110,9 +109,7 @@ class ServerClient(
             val payload = JSONObject().put("scheduled_at", cleanScheduledAt).put("allow_during_off_period", allowDuringOffPeriod)
             val (code, body) = postJson("$cleanUrl/api/reservations", cleanSecret, payload)
             when (code) {
-                HttpURLConnection.HTTP_CREATED, HttpURLConnection.HTTP_OK -> JSONObject(body).let {
-                    CreateReservationResult.Success(it.optString("id", ""), it.optString("scheduled_at", it.optString("reserved_at", cleanScheduledAt)), it.optString("status", "예정"))
-                }
+                HttpURLConnection.HTTP_CREATED, HttpURLConnection.HTTP_OK -> JSONObject(body).let { CreateReservationResult.Success(it.optString("id", ""), it.optString("scheduled_at", it.optString("reserved_at", cleanScheduledAt)), it.optString("status", "예정")) }
                 HttpURLConnection.HTTP_BAD_REQUEST -> CreateReservationResult.Failure(400, extractErrorMsg(body, "과거 시각 또는 잘못된 형식입니다: HTTP 400"))
                 HttpURLConnection.HTTP_UNAUTHORIZED -> CreateReservationResult.Failure(401, ERR_AUTH)
                 else -> CreateReservationResult.Failure(code, "서버 응답 오류 (HTTP $code)")
@@ -227,9 +224,7 @@ class ServerClient(
         return try {
             val (code, body) = postJson("$cleanUrl/api/notification-targets", cleanSecret, JSONObject().apply { put("device_id", cleanDevice); put("push_token", cleanToken) })
             when (code) {
-                HttpURLConnection.HTTP_CREATED, HttpURLConnection.HTTP_OK -> JSONObject(body).let {
-                    RegisterNotificationResult.Success(it.optString("device_id", cleanDevice), it.optString("push_token", cleanToken))
-                }
+                HttpURLConnection.HTTP_CREATED, HttpURLConnection.HTTP_OK -> JSONObject(body).let { RegisterNotificationResult.Success(it.optString("device_id", cleanDevice), it.optString("push_token", cleanToken)) }
                 HttpURLConnection.HTTP_UNAUTHORIZED -> RegisterNotificationResult.Failure(401, ERR_AUTH)
                 else -> RegisterNotificationResult.Failure(code, extractErrorMsg(body, "서버 응답 오류 (HTTP $code)"))
             }
@@ -243,9 +238,7 @@ class ServerClient(
         return try {
             val (code, responseBody) = postJson("$cleanUrl/api/notify/test", cleanSecret, JSONObject().apply { put("title", title); put("body", body) })
             when (code) {
-                HttpURLConnection.HTTP_OK -> JSONObject(responseBody).let {
-                    SendNotificationResult.Success(it.optInt("total_targets", 0), it.optInt("success_count", 0))
-                }
+                HttpURLConnection.HTTP_OK -> JSONObject(responseBody).let { SendNotificationResult.Success(it.optInt("total_targets", 0), it.optInt("success_count", 0)) }
                 HttpURLConnection.HTTP_UNAUTHORIZED -> SendNotificationResult.Failure(401, ERR_AUTH)
                 else -> SendNotificationResult.Failure(code, extractErrorMsg(responseBody, "서버 응답 오류 (HTTP $code)"))
             }
@@ -258,11 +251,7 @@ class ServerClient(
         if (cleanUrl.isEmpty() || cleanSecret.isEmpty()) return WaterTrackerResult.Failure(400, "서버 주소와 공유 비밀키가 필요합니다.")
         return try {
             val (code, body) = getJson("$cleanUrl/api/water-tracker", cleanSecret)
-            when (code) {
-                HttpURLConnection.HTTP_OK -> WaterTrackerResult.Success(WaterTrackerItem.fromJson(JSONObject(body)))
-                HttpURLConnection.HTTP_UNAUTHORIZED -> WaterTrackerResult.Failure(401, ERR_AUTH)
-                else -> WaterTrackerResult.Failure(code, extractErrorMsg(body, "서버 응답 오류 (HTTP $code)"))
-            }
+            parseWaterTrackerResponse(code, body)
         } catch (e: Exception) { WaterTrackerResult.Failure(0, ioErrMsg(e, "물 추적 상태 조회 오류")) }
     }
 
@@ -272,23 +261,31 @@ class ServerClient(
         if (cleanUrl.isEmpty() || cleanSecret.isEmpty()) return WaterTrackerResult.Failure(400, "서버 주소와 공유 비밀키가 필요합니다.")
         return try {
             val (code, body) = postJson("$cleanUrl/api/water-tracker/refill", cleanSecret, JSONObject())
-            when (code) {
-                HttpURLConnection.HTTP_OK -> WaterTrackerResult.Success(WaterTrackerItem.fromJson(JSONObject(body)))
-                HttpURLConnection.HTTP_UNAUTHORIZED -> WaterTrackerResult.Failure(401, ERR_AUTH)
-                else -> WaterTrackerResult.Failure(code, extractErrorMsg(body, "서버 응답 오류 (HTTP $code)"))
-            }
+            parseWaterTrackerResponse(code, body)
         } catch (e: Exception) { WaterTrackerResult.Failure(0, ioErrMsg(e, "물 채움 처리 중 오류")) }
+    }
+
+    /** 알림 기준 횟수 N을 변경한다 (POST /api/water-tracker, REQ-021, LB-040). */
+    fun updateAlertThreshold(serverUrl: String, sharedSecret: String, thresholdN: Int): WaterTrackerResult {
+        val cleanUrl = normalizeUrl(serverUrl); val cleanSecret = sharedSecret.trim()
+        if (cleanUrl.isEmpty() || cleanSecret.isEmpty()) return WaterTrackerResult.Failure(400, "서버 주소와 공유 비밀키가 필요합니다.")
+        if (thresholdN < 1) return WaterTrackerResult.Failure(400, "1 이상의 정수만 허용됩니다.")
+        return try {
+            val payload = JSONObject().apply { put("alert_threshold_n", thresholdN) }
+            val (code, body) = postJson("$cleanUrl/api/water-tracker", cleanSecret, payload)
+            parseWaterTrackerResponse(code, body)
+        } catch (e: Exception) { WaterTrackerResult.Failure(0, ioErrMsg(e, "알림 기준 횟수 변경 오류")) }
+    }
+
+    private fun parseWaterTrackerResponse(code: Int, body: String): WaterTrackerResult = when (code) {
+        HttpURLConnection.HTTP_OK -> WaterTrackerResult.Success(WaterTrackerItem.fromJson(JSONObject(body)))
+        HttpURLConnection.HTTP_UNAUTHORIZED -> WaterTrackerResult.Failure(401, ERR_AUTH)
+        else -> WaterTrackerResult.Failure(code, extractErrorMsg(body, "서버 응답 오류 (HTTP $code)"))
     }
 
     private fun readStream(inputStream: InputStream): String =
         BufferedReader(InputStreamReader(inputStream, Charsets.UTF_8)).use { it.readText() }
 
-    private sealed interface HealthCheckResult {
-        data class Success(val serviceName: String, val serverTimeKst: String) : HealthCheckResult
-        data class Failure(val message: String) : HealthCheckResult
-    }
-    private sealed interface AuthCheckResult {
-        data class Success(val reservationCount: Int) : AuthCheckResult; data object Unauthorized : AuthCheckResult
-        data class Failure(val message: String) : AuthCheckResult
-    }
+    private sealed interface HealthCheckResult { data class Success(val serviceName: String, val serverTimeKst: String) : HealthCheckResult; data class Failure(val message: String) : HealthCheckResult }
+    private sealed interface AuthCheckResult { data class Success(val reservationCount: Int) : AuthCheckResult; data object Unauthorized : AuthCheckResult; data class Failure(val message: String) : AuthCheckResult }
 }

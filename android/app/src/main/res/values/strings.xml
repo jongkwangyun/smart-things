@@ -124,4 +124,13 @@
     <string name="text_count_times">%1$d회</string>
     <string name="text_alert_threshold_format">%1$d회 (도달 시 푸시 알림)</string>
     <string name="text_no_refill_record">기록 없음</string>
+
+    <!-- LB-040 알림 기준 횟수 N 변경 리소스 (REQ-021, D-14) -->
+    <string name="btn_change_threshold">기준 횟수 변경</string>
+    <string name="dialog_title_change_threshold">알림 기준 횟수 변경</string>
+    <string name="dialog_msg_change_threshold">물 부족 알림을 받을 물걸레 청소 횟수(N)를 입력하세요. (1 이상)</string>
+    <string name="dialog_hint_threshold">예: 7</string>
+    <string name="btn_save">저장</string>
+    <string name="msg_error_invalid_threshold">1 이상의 정수만 입력할 수 있습니다.</string>
+    <string name="msg_success_threshold_updated">알림 기준 횟수가 %d회로 변경되었습니다.</string>
 </resources>

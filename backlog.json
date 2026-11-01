@@ -657,7 +657,7 @@
     {
       "id": "LB-040",
       "reqs": ["REQ-021"],
-      "status": "todo",
+      "status": "done",
       "priority": "나중",
       "category": "물관리",
       "title": "알림 기준 횟수 N 변경 화면",
@@ -666,9 +666,9 @@
       "parent": null,
       "deps": ["LB-039"],
       "doc": null,
-      "done_at": null,
+      "done_at": "2026-11-01",
       "must": "1 이상의 정수만 허용한다.",
-      "memo": null
+      "memo": "[2026-11-01] [2026-11-01] 검증 완료: server/server.py POST /api/water-tracker alert_threshold_n 유효성 검사 및 WaterService.set_threshold 연동. 1 미만(0, 음수) 및 비정수 값 요청 시 400 반환 확인(Must). Android WaterManagementActivity '기준 횟수 변경' 버튼(btnChangeThreshold) 및 입력 다이얼로그 구현, 클라이언트 1 이상 정수 검증 및 실시간 갱신 확인. 기준 횟수 변경 후 다음 물걸레 청소가 바뀐 N 도달 시 알림 발송 확인(Done When, REQ-021). tests/test_water_threshold.py 포함 247개 전체 테스트 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인."
     },
     {
       "id": "LB-041",

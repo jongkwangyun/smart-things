@@ -193,7 +193,30 @@ class TestDeviceCapabilitiesDoc(unittest.TestCase):
         self.assertIn("A-05", self.content)
         self.assertIn("최종 확정", self.content)
 
+    def test_water_tank_removal_detection_section_exists(self) -> None:
+        """'물통 탈착 감지 및 자동 물 채움 감지 가능 여부' 절이 독립된 절로 존재하는지 검증 (LB-041 done_when)."""
+        self.assertTrue(
+            any(
+                line.strip().startswith("##") and "물통 탈착 감지" in line
+                for line in self.lines
+            ),
+            "docs/device-capabilities.md에 '물통 탈착 감지 및 자동 물 채움 감지 가능 여부' 절이 있어야 합니다.",
+        )
+
+    def test_water_tank_removal_evidence_and_conclusion(self) -> None:
+        """물통 탈착 감지 관련 실제 API/이벤트 응답 분석과 결론('자동 물 채움 감지 불가') 검증 (LB-041 must)."""
+        self.assertIn("custom.hepaFilter", self.content)
+        self.assertIn("samsungce.robotCleanerDustBag", self.content)
+        self.assertIn("samsungce.robotCleanerWaterSprayLevel", self.content)
+        self.assertIn("refill-drainage-kit", self.content)
+        self.assertIn("operatingState", self.content)
+        self.assertIn("자동 물 채움 감지 불가", self.content)
+        self.assertIn("물 채움", self.content)
+        self.assertIn("REQ-019", self.content)
+        self.assertIn("A-02", self.content)
+        self.assertIn("D-14", self.content)
 
 
 if __name__ == "__main__":
+
     unittest.main()

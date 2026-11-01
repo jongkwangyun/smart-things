@@ -673,7 +673,7 @@
     {
       "id": "LB-041",
       "reqs": ["REQ-019"],
-      "status": "todo",
+      "status": "done",
       "priority": "나중",
       "category": "물관리",
       "title": "물통 탈착 감지 및 자동 물 채움 감지 가능 여부 조사",
@@ -682,9 +682,9 @@
       "parent": null,
       "deps": [],
       "doc": "SPEC.md#assumptions",
-      "done_at": null,
+      "done_at": "2026-11-01",
       "must": "실제 스마트싱스 API 상태 및 이벤트 응답을 근거로 판정하며 추정하지 않는다.",
-      "memo": null
+      "memo": "[2026-11-01] [2026-11-01] 조사 및 검증 완료: docs/device-capabilities.md 섹션 8 추가. 실제 스마트싱스 API 기기 상태 응답 조사 결과, 청정스테이션(station)은 HEPA 필터 및 먼지봉투 속성만 제공하고 정수통/오수통 탈착 감지 capability 및 속성이 전무함(Must). 물통 탈착 시 디바이스 이벤트 및 operatingState 상태 전이 없음. 이에 따라 물통 탈착을 통한 '자동 물 채움 감지 불가' 결론 확정(Done When) 및 앱 내 '물 채움' 버튼(REQ-019, D-14) 수동 초기화 방식 유지 확정. tests/test_device_capabilities.py 포함 242개 전체 테스트 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인."
     }
   ]
 }

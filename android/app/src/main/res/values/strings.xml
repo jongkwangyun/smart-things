@@ -112,7 +112,7 @@
 
     <!-- LB-038 물 관리 및 물 채움 리소스 (REQ-019, D-06, D-14) -->
     <string name="title_water_management">물 관리</string>
-    <string name="subtitle_water_management">물걸레 청소 횟수 확인 및 '물 채움' 기록을 관리합니다. (REQ-019, D-14)</string>
+    <string name="subtitle_water_management">물걸레 청소 횟수 확인 및 물 채움 기록을 관리합니다. (REQ-019, D-14)</string>
     <string name="btn_water_management">물 관리</string>
     <string name="btn_refill_water">물 채움</string>
     <string name="btn_refilling_water">물 채움 처리 중…</string>

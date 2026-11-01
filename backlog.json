@@ -369,7 +369,7 @@
     {
       "id": "LB-022",
       "reqs": ["REQ-013"],
-      "status": "todo",
+      "status": "done",
       "priority": "핵심",
       "category": "쉬는기간",
       "title": "쉬는 기간 삭제",
@@ -378,9 +378,9 @@
       "parent": null,
       "deps": ["LB-021", "LB-023"],
       "doc": null,
-      "done_at": null,
+      "done_at": "2026-11-01",
       "must": "삭제 즉시 제한이 해제되어야 한다.",
-      "memo": null
+      "memo": "[2026-11-01] 검증 완료: DELETE /api/off-periods/{op_id} 및 ServerClient.deleteOffPeriod 구현. OffPeriodListActivity 삭제 확인 다이얼로그 및 목록 즉시 갱신 연동. 진행 중 쉬는 기간 삭제 즉시 get_active_off_period()가 None 반환하여 직후 청소 시작 시 return_to_home 미호출 및 정상 청소 유지 확인(Must, REQ-013). tests/test_off_period_delete.py 포함 220개 전체 테스트 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인."
     },
     {
       "id": "LB-023",

@@ -6,6 +6,7 @@ import com.smartthings.cleaner.model.ConnectionError
 import com.smartthings.cleaner.model.ConnectionState
 import com.smartthings.cleaner.model.CreateOffPeriodResult
 import com.smartthings.cleaner.model.CreateReservationResult
+import com.smartthings.cleaner.model.DeleteOffPeriodResult
 import com.smartthings.cleaner.model.FetchOffPeriodsResult
 import com.smartthings.cleaner.model.FetchReservationsResult
 import com.smartthings.cleaner.model.OffPeriodItem
@@ -38,7 +39,6 @@ class ServerClient(
 
         fun normalizeUrl(rawUrl: String): String = rawUrl.trim().removeSuffix("/")
         private fun prefs(c: Context) = c.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-
         fun saveCredentials(context: Context, serverUrl: String, sharedSecret: String) =
             prefs(context).edit().putString(KEY_SERVER_URL, normalizeUrl(serverUrl)).putString(KEY_SHARED_SECRET, sharedSecret.trim()).apply()
         fun getSavedServerUrl(context: Context): String = prefs(context).getString(KEY_SERVER_URL, "") ?: ""
@@ -47,44 +47,36 @@ class ServerClient(
 
     private fun openAuthConnection(endpoint: String, secret: String, method: String): HttpURLConnection =
         (URL(endpoint).openConnection() as HttpURLConnection).apply {
-            requestMethod = method
-            connectTimeout = connectTimeoutMs
-            readTimeout = readTimeoutMs
-            if (secret.isNotEmpty()) {
-                setRequestProperty("X-Shared-Secret", secret)
-                setRequestProperty("Authorization", "Bearer $secret")
-            }
+            requestMethod = method; connectTimeout = connectTimeoutMs; readTimeout = readTimeoutMs
+            if (secret.isNotEmpty()) { setRequestProperty("X-Shared-Secret", secret); setRequestProperty("Authorization", "Bearer $secret") }
         }
 
     private fun sendJson(endpoint: String, secret: String, method: String, payload: JSONObject): Pair<Int, String> {
         var conn: HttpURLConnection? = null
         return try {
             conn = openAuthConnection(endpoint, secret, method).apply {
-                doOutput = true
-                setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+                doOutput = true; setRequestProperty("Content-Type", "application/json; charset=UTF-8")
             }
             OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { it.write(payload.toString()) }
             val code = conn.responseCode
             val stream = if (code in 200..299) conn.inputStream else (conn.errorStream ?: conn.inputStream)
             Pair(code, if (stream != null) readStream(stream) else "")
-        } finally {
-            conn?.disconnect()
-        }
+        } finally { conn?.disconnect() }
     }
 
     private fun postJson(endpoint: String, secret: String, payload: JSONObject) = sendJson(endpoint, secret, "POST", payload)
     private fun putJson(endpoint: String, secret: String, payload: JSONObject) = sendJson(endpoint, secret, "PUT", payload)
+    private fun getJson(endpoint: String, secret: String) = requestNoBody(endpoint, secret, "GET")
+    private fun deleteHttp(endpoint: String, secret: String) = requestNoBody(endpoint, secret, "DELETE")
 
-    private fun getJson(endpoint: String, secret: String): Pair<Int, String> {
+    private fun requestNoBody(endpoint: String, secret: String, method: String): Pair<Int, String> {
         var conn: HttpURLConnection? = null
         return try {
-            conn = openAuthConnection(endpoint, secret, "GET")
+            conn = openAuthConnection(endpoint, secret, method)
             val code = conn.responseCode
             val stream = if (code in 200..299) conn.inputStream else (conn.errorStream ?: conn.inputStream)
             Pair(code, if (stream != null) readStream(stream) else "")
-        } finally {
-            conn?.disconnect()
-        }
+        } finally { conn?.disconnect() }
     }
 
     private fun extractErrorMsg(jsonStr: String, fallback: String): String =
@@ -92,8 +84,7 @@ class ServerClient(
 
     /** 서버 연결 상태를 검증한다 (REQ-024, REQ-025). */
     fun testConnection(serverUrl: String, sharedSecret: String): ConnectionState {
-        val cleanUrl = normalizeUrl(serverUrl)
-        val cleanSecret = sharedSecret.trim()
+        val cleanUrl = normalizeUrl(serverUrl); val cleanSecret = sharedSecret.trim()
         if (cleanUrl.isEmpty()) return ConnectionState.Failed(ConnectionError.EMPTY_URL, "서버 주소를 입력해 주세요.")
         if (cleanSecret.isEmpty()) return ConnectionState.Failed(ConnectionError.EMPTY_SECRET, "공유 비밀키를 입력해 주세요.")
         if (!cleanUrl.startsWith("http://") && !cleanUrl.startsWith("https://")) return ConnectionState.Failed(ConnectionError.INVALID_URL, "URL은 http:// 또는 https://로 시작해야 합니다.")
@@ -150,9 +141,7 @@ class ServerClient(
         return try {
             val (code, body) = putJson("$cleanUrl/api/reservations/$cleanId", cleanSecret, JSONObject().apply { put("scheduled_at", cleanScheduledAt) })
             when (code) {
-                HttpURLConnection.HTTP_OK -> JSONObject(body).let {
-                    UpdateReservationResult.Success(it.optString("id", cleanId), it.optString("scheduled_at", it.optString("reserved_at", cleanScheduledAt)), it.optString("status", "예정"))
-                }
+                HttpURLConnection.HTTP_OK -> JSONObject(body).let { UpdateReservationResult.Success(it.optString("id", cleanId), it.optString("scheduled_at", it.optString("reserved_at", cleanScheduledAt)), it.optString("status", "예정")) }
                 HttpURLConnection.HTTP_BAD_REQUEST -> UpdateReservationResult.Failure(400, extractErrorMsg(body, "과거 시각 또는 수정할 수 없는 예약입니다."))
                 HttpURLConnection.HTTP_UNAUTHORIZED -> UpdateReservationResult.Failure(401, "인증 실패: 공유 비밀키가 올바르지 않습니다. (REQ-024, D-09)")
                 HttpURLConnection.HTTP_NOT_FOUND -> UpdateReservationResult.Failure(404, extractErrorMsg(body, "해당 예약을 찾을 수 없습니다."))
@@ -171,9 +160,7 @@ class ServerClient(
         return try {
             val (code, body) = postJson("$cleanUrl/api/reservations/$cleanId/cancel", cleanSecret, JSONObject())
             when (code) {
-                HttpURLConnection.HTTP_OK -> JSONObject(body).let {
-                    CancelReservationResult.Success(it.optString("id", cleanId), it.optString("status", "취소"))
-                }
+                HttpURLConnection.HTTP_OK -> JSONObject(body).let { CancelReservationResult.Success(it.optString("id", cleanId), it.optString("status", "취소")) }
                 HttpURLConnection.HTTP_BAD_REQUEST -> CancelReservationResult.Failure(400, extractErrorMsg(body, "이미 실행되었거나 취소할 수 없는 예약입니다."))
                 HttpURLConnection.HTTP_UNAUTHORIZED -> CancelReservationResult.Failure(401, "인증 실패: 공유 비밀키가 올바르지 않습니다. (REQ-024, D-09)")
                 HttpURLConnection.HTTP_NOT_FOUND -> CancelReservationResult.Failure(404, extractErrorMsg(body, "해당 예약을 찾을 수 없습니다."))
@@ -192,15 +179,31 @@ class ServerClient(
         return try {
             val (code, body) = postJson("$cleanUrl/api/off-periods", cleanSecret, JSONObject().apply { put("start_at", cleanStart); put("end_at", cleanEnd) })
             when (code) {
-                HttpURLConnection.HTTP_CREATED, HttpURLConnection.HTTP_OK -> JSONObject(body).let {
-                    CreateOffPeriodResult.Success(it.optString("id", ""), it.optString("start_at", cleanStart), it.optString("end_at", cleanEnd))
-                }
+                HttpURLConnection.HTTP_CREATED, HttpURLConnection.HTTP_OK -> JSONObject(body).let { CreateOffPeriodResult.Success(it.optString("id", ""), it.optString("start_at", cleanStart), it.optString("end_at", cleanEnd)) }
                 HttpURLConnection.HTTP_BAD_REQUEST -> CreateOffPeriodResult.Failure(400, extractErrorMsg(body, "종료 일시는 시작 일시보다 뒤여야 합니다."))
                 HttpURLConnection.HTTP_UNAUTHORIZED -> CreateOffPeriodResult.Failure(401, "인증 실패: 공유 비밀키가 올바르지 않습니다. (REQ-024, D-09)")
                 else -> CreateOffPeriodResult.Failure(code, "서버 응답 오류 (HTTP $code)")
             }
         } catch (e: Exception) {
             CreateOffPeriodResult.Failure(0, if (e is IOException) "서버에 연결할 수 없습니다: ${e.message}" else "쉬는 기간 등록 중 오류: ${e.message}")
+        }
+    }
+
+    /** 쉬는 기간을 삭제한다 (DELETE /api/off-periods/{id}, REQ-013, LB-022). */
+    fun deleteOffPeriod(serverUrl: String, sharedSecret: String, offPeriodId: String): DeleteOffPeriodResult {
+        val cleanUrl = normalizeUrl(serverUrl); val cleanSecret = sharedSecret.trim(); val cleanId = offPeriodId.trim()
+        if (cleanUrl.isEmpty() || cleanSecret.isEmpty()) return DeleteOffPeriodResult.Failure(400, "서버 주소와 공유 비밀키가 필요합니다.")
+        if (cleanId.isEmpty()) return DeleteOffPeriodResult.Failure(400, "쉬는 기간 ID가 필요합니다.")
+        return try {
+            val (code, body) = deleteHttp("$cleanUrl/api/off-periods/$cleanId", cleanSecret)
+            when (code) {
+                HttpURLConnection.HTTP_OK -> JSONObject(body).let { DeleteOffPeriodResult.Success(it.optString("id", cleanId)) }
+                HttpURLConnection.HTTP_NOT_FOUND -> DeleteOffPeriodResult.Failure(404, extractErrorMsg(body, "해당 쉬는 기간을 찾을 수 없습니다."))
+                HttpURLConnection.HTTP_UNAUTHORIZED -> DeleteOffPeriodResult.Failure(401, "인증 실패: 공유 비밀키가 올바르지 않습니다. (REQ-024, D-09)")
+                else -> DeleteOffPeriodResult.Failure(code, extractErrorMsg(body, "서버 응답 오류 (HTTP $code)"))
+            }
+        } catch (e: Exception) {
+            DeleteOffPeriodResult.Failure(0, if (e is IOException) "서버에 연결할 수 없습니다: ${e.message}" else "쉬는 기간 삭제 중 오류: ${e.message}")
         }
     }
 
@@ -285,8 +288,7 @@ class ServerClient(
         data class Failure(val message: String) : HealthCheckResult
     }
     private sealed interface AuthCheckResult {
-        data class Success(val reservationCount: Int) : AuthCheckResult
-        data object Unauthorized : AuthCheckResult
+        data class Success(val reservationCount: Int) : AuthCheckResult; data object Unauthorized : AuthCheckResult
         data class Failure(val message: String) : AuthCheckResult
     }
 }

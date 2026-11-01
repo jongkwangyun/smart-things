@@ -465,7 +465,7 @@
     {
       "id": "LB-028",
       "reqs": ["REQ-027"],
-      "status": "todo",
+      "status": "done",
       "priority": "검증",
       "category": "1회성예약",
       "title": "놓친 예약 '누락' 처리",
@@ -474,9 +474,9 @@
       "parent": null,
       "deps": ["LB-016"],
       "doc": null,
-      "done_at": null,
+      "done_at": "2026-11-01",
       "must": "늦게라도 실행하지 않는다.",
-      "memo": null
+      "memo": "[2026-11-01] 검증 완료: MISSED_THRESHOLD(5분) 초과 지연 예약에 대해 청소 명령 0건 전송 및 STATUS_MISSED('누락') 전이 구현. 서버 재부팅 후에도 늦게 실행되지 않고 '누락' 보존 확인(Must, REQ-027). GET /api/reservations 및 Android ReservationItem '누락' 뱃지 표시 확인. tests/test_scheduler_missed.py 포함 209개 전체 테스트 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인."
     },
     {
       "id": "LB-029",

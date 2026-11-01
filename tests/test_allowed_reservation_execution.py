@@ -4,7 +4,7 @@ import io
 import json
 import tempfile
 import unittest
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
@@ -22,7 +22,7 @@ from server.scheduler.scheduler import ReservationScheduler
 from server.server import MiniPCHandler, MiniPCServer
 from server.smartthings.client import DeviceStatus
 from server.storage import Storage
-from server.time_utils import KST, format_kst
+from server.time_utils import format_kst, now_kst
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ANDROID_ITEM_KT = PROJECT_ROOT / "android/app/src/main/java/com/smartthings/cleaner/model/ReservationItem.kt"
@@ -102,7 +102,7 @@ class TestAllowedReservationExecution(unittest.TestCase):
         self.notify.register_device("s21-plus", "token-s21")
         self.notify.register_device("fold-8", "token-fold8")
         self.client = MockClient(state="idle")
-        self.current_time = datetime(2026, 11, 1, 14, 0, 0, tzinfo=KST)
+        self.current_time = (now_kst() + timedelta(days=2)).replace(second=0, microsecond=0)
         self.watcher = AutoStopWatcher(
             storage=self.storage,
             client=self.client,  # type: ignore[arg-type]

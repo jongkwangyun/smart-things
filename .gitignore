@@ -17,4 +17,5 @@ google-services.json
 *firebase*.json
 firebase-credentials*.json
 *.fcm.json
+server/deploy/task_instance.xml
 

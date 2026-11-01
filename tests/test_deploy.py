@@ -235,6 +235,7 @@ class TestDeploy(unittest.TestCase):
         proc_reg = subprocess.run(cmd_reg, capture_output=True, encoding="utf-8", errors="replace", timeout=15)
         self.assertEqual(proc_reg.returncode, 0, f"register stderr: {proc_reg.stderr}")
         self.assertTrue(out_xml.is_file(), "DryRun 중 XML 인스턴스 파일이 생성되어야 합니다.")
+        self.assertIn('encoding="UTF-16"', out_xml.read_text(encoding="utf-16"))
 
         cmd_unreg = [
             "powershell",

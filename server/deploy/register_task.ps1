@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     미니PC 재부팅 시 스마트싱스 서버를 자동 시작하도록 작업 스케줄러에 등록합니다.
 
@@ -86,7 +86,7 @@ if (-not $OutputXmlPath) {
 
 # 2. 템플릿 치환
 $templateContent = [System.IO.File]::ReadAllText($XmlTemplatePath, [System.Text.Encoding]::UTF8)
-$resolvedXml = $templateContent.Replace("{{PYTHON_PATH}}", $PythonExe).Replace("{{PROJECT_ROOT}}", $ProjectRoot)
+$resolvedXml = $templateContent.Replace('encoding="UTF-8"', 'encoding="UTF-16"').Replace("{{PYTHON_PATH}}", $PythonExe).Replace("{{PROJECT_ROOT}}", $ProjectRoot)
 
 # UTF-16 LE로 인스턴스 XML 파일 저장 (schtasks.exe 및 Register-ScheduledTask 완전 호환)
 $utf16 = [System.Text.Encoding]::Unicode

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from server.models import STATUS_FAILED, STATUS_MISSED, STATUS_SCHEDULED, STATUS_SUCCESS, Reservation
+from server.off_periods.auto_stop import is_cleaner_cleaning as _is_cleaner_cleaning
 from server.scheduler.logger import DEFAULT_SCHEDULER_LOG_FILE, get_scheduler_logger
 from server.smartthings.auth import SmartThingsTokenManager, TokenInfo, resolve_credential
 from server.smartthings.client import SmartThingsClient, parse_failure_reason
@@ -16,40 +17,11 @@ from server.time_utils import format_kst, now_kst
 
 if TYPE_CHECKING:
     from server.notify.service import NotificationService
+    from server.off_periods.auto_stop import AutoStopWatcher
 
 DEFAULT_DEVICE_ID = "03431570-5acf-f89e-7b39-275ce15d3258"
 MISSED_THRESHOLD = timedelta(minutes=5)
 SUCCESS_WINDOW = timedelta(minutes=5)
-
-
-def _is_cleaner_cleaning(status: Any) -> bool:
-    """청소기가 청소 중 상태인지 확인한다 (docs/device-capabilities.md 섹션 4)."""
-    if status is None:
-        return False
-    op_state = getattr(status, "operating_state", None) or (
-        status.get("operating_state") if isinstance(status, dict) else None
-    )
-    if str(op_state or "").lower() in ("cleaning", "processing"):
-        return True
-    movement = getattr(status, "movement", None) or (
-        status.get("movement") if isinstance(status, dict) else None
-    )
-    if str(movement or "").lower() == "cleaning":
-        return True
-    raw = getattr(status, "raw_status", None) or (
-        status.get("raw_status") if isinstance(status, dict) else None
-    )
-    if isinstance(raw, dict):
-        main = raw.get("components", {}).get("main", {}) if isinstance(raw.get("components"), dict) else {}
-        for key in ("robotCleanerMovement", "samsungce.robotCleanerMovement"):
-            comp = main.get(key) if isinstance(main, dict) else None
-            if isinstance(comp, dict):
-                for subkey in ("movement", "robotCleanerMovement", "value"):
-                    sub = comp.get(subkey)
-                    val = sub.get("value") if isinstance(sub, dict) else sub
-                    if str(val or "").lower() == "cleaning":
-                        return True
-    return False
 
 
 def _resolve_default_client(log_file: Path | str = DEFAULT_SCHEDULER_LOG_FILE) -> SmartThingsClient:
@@ -81,6 +53,7 @@ class ReservationScheduler:
         now_func: Callable[[], datetime] = now_kst,
         log_file: Path | str = DEFAULT_SCHEDULER_LOG_FILE,
         notification_service: NotificationService | None = None,
+        auto_stop_watcher: AutoStopWatcher | None = None,
     ) -> None:
         self.storage = storage
         self.log_file = Path(log_file)
@@ -90,6 +63,17 @@ class ReservationScheduler:
         self.poll_interval = max(0.05, float(poll_interval))
         self.now_func = now_func
         self.notification_service = notification_service
+        if auto_stop_watcher is not None:
+            self.auto_stop_watcher = auto_stop_watcher
+        else:
+            from server.off_periods.auto_stop import AutoStopWatcher
+            self.auto_stop_watcher = AutoStopWatcher(
+                storage=self.storage,
+                client=self.client,
+                device_id=self.device_id,
+                notification_service=self.notification_service,
+                now_func=self.now_func,
+            )
 
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
@@ -174,6 +158,14 @@ class ReservationScheduler:
                     self._check_and_mark_success(r, now)
                 else:
                     self._mark_failure(r, now)
+
+        if self.auto_stop_watcher is not None:
+            if self.auto_stop_watcher.notification_service is None and self.notification_service is not None:
+                self.auto_stop_watcher.notification_service = self.notification_service
+            try:
+                self.auto_stop_watcher.step(now)
+            except Exception as e:
+                self.logger.exception("자동 정지 워처 실행 중 오류 발생: %s", e)
 
         return executed
 

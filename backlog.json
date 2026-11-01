@@ -385,7 +385,7 @@
     {
       "id": "LB-023",
       "reqs": ["REQ-016"],
-      "status": "todo",
+      "status": "done",
       "priority": "핵심",
       "category": "쉬는기간",
       "title": "쉬는 기간 중 반복 예약 청소 자동 정지",
@@ -394,9 +394,9 @@
       "parent": null,
       "deps": ["LB-001", "LB-004", "LB-020"],
       "doc": "SPEC.md#decisions",
-      "done_at": null,
+      "done_at": "2026-11-01",
       "must": "반복 예약 자체는 건드리지 않고 시작되면 정지한다 (D-04, D-11). 정지까지 걸린 시간을 기록해 둔다 (A-09 미정).",
-      "memo": null
+      "memo": "[2026-11-01] 검증 완료: server/off_periods/auto_stop.py AutoStopWatcher 구현 및 ReservationScheduler.step() 연동. 활성 쉬는 기간 중 청소 감지 시 client.return_to_home() 즉시 전송, 정지 소요 시간(perf_counter) 측정 후 AutoStopEvent 영구 기록(Must, A-09). 허용된 1회성 예약 청소 제외(D-05, LB-031). 두 단말 FCM 푸시 전송. tests/test_auto_stop.py 포함 216개 전체 테스트 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인."
     },
     {
       "id": "LB-024",

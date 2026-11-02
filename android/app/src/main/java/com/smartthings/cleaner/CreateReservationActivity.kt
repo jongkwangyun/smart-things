@@ -40,7 +40,7 @@ class CreateReservationActivity : AppCompatActivity() {
     companion object {
         val KST_ZONE: ZoneId = ZoneId.of("Asia/Seoul")
         val DISPLAY_FORMATTER: DateTimeFormatter =
-            DateTimeFormatter.ofPattern("yyyy년 MM월 dd일 HH:mm (KST)", Locale.KOREAN)
+            DateTimeFormatter.ofPattern("yyyy년 MM월 dd일 HH:mm ('KST')", Locale.KOREAN)
         val ISO_FORMATTER: DateTimeFormatter =
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:00+09:00", Locale.ROOT)
 

@@ -41,7 +41,7 @@ data class ReservationItem(
         )
 
         private val DISPLAY_FORMATTER =
-            DateTimeFormatter.ofPattern("yyyy년 MM월 dd일 HH:mm (KST)", Locale.KOREAN)
+            DateTimeFormatter.ofPattern("yyyy년 MM월 dd일 HH:mm ('KST')", Locale.KOREAN)
 
         fun fromJson(json: JSONObject): ReservationItem {
             val id = json.optString("id", "")

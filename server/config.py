@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from pathlib import Path
+
+from server.smartthings.auth import resolve_credential
 
 DEFAULT_HOST = "0.0.0.0"
 DEFAULT_PORT = 8080
@@ -21,30 +22,30 @@ class Config:
     firebase_credentials_path: Path | None = None
 
     @classmethod
-    def from_env(cls) -> Config:
-        host = os.environ.get("SMART_THINGS_HOST", DEFAULT_HOST)
-        port_raw = os.environ.get("SMART_THINGS_PORT")
+    def from_env(cls, env_path: Path | str = ".env") -> Config:
+        host = resolve_credential("SMART_THINGS_HOST", env_path=env_path, default=DEFAULT_HOST)
+        port_raw = resolve_credential("SMART_THINGS_PORT", env_path=env_path)
         port = int(port_raw) if port_raw and port_raw.isdigit() else DEFAULT_PORT
-        db_raw = os.environ.get("SMART_THINGS_DB_PATH")
+        db_raw = resolve_credential("SMART_THINGS_DB_PATH", env_path=env_path)
         db_path = Path(db_raw) if db_raw else DEFAULT_DB_PATH
         shared_secret = (
-            os.environ.get("SMARTTHINGS_SHARED_SECRET")
-            or os.environ.get("SMART_THINGS_SHARED_SECRET")
+            resolve_credential("SMARTTHINGS_SHARED_SECRET", env_path=env_path)
+            or resolve_credential("SMART_THINGS_SHARED_SECRET", env_path=env_path)
             or DEFAULT_SHARED_SECRET
         )
         ssl_cert_raw = (
-            os.environ.get("SMART_THINGS_SSL_CERT_PATH")
-            or os.environ.get("SMARTTHINGS_SSL_CERT_PATH")
+            resolve_credential("SMART_THINGS_SSL_CERT_PATH", env_path=env_path)
+            or resolve_credential("SMARTTHINGS_SSL_CERT_PATH", env_path=env_path)
         )
         ssl_cert_path = Path(ssl_cert_raw) if ssl_cert_raw else None
         ssl_key_raw = (
-            os.environ.get("SMART_THINGS_SSL_KEY_PATH")
-            or os.environ.get("SMARTTHINGS_SSL_KEY_PATH")
+            resolve_credential("SMART_THINGS_SSL_KEY_PATH", env_path=env_path)
+            or resolve_credential("SMARTTHINGS_SSL_KEY_PATH", env_path=env_path)
         )
         ssl_key_path = Path(ssl_key_raw) if ssl_key_raw else None
         firebase_cred_raw = (
-            os.environ.get("FIREBASE_CREDENTIALS_PATH")
-            or os.environ.get("SMART_THINGS_FIREBASE_CREDENTIALS_PATH")
+            resolve_credential("FIREBASE_CREDENTIALS_PATH", env_path=env_path)
+            or resolve_credential("SMART_THINGS_FIREBASE_CREDENTIALS_PATH", env_path=env_path)
         )
         firebase_credentials_path = Path(firebase_cred_raw) if firebase_cred_raw else None
         return cls(

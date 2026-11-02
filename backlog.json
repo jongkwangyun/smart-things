@@ -1,7 +1,7 @@
 {
   "$schema_version": "1",
   "meta": {
-    "updated": "2026-11-01",
+    "updated": "2026-11-02",
     "context_doc": "SPEC.md",
     "note": "로봇청소기 VR7MD97716G 스마트싱스 확장 작업 SSOT — 상세 기준은 각 작업의 done_when과 must에 있다"
   },
@@ -685,6 +685,54 @@
       "done_at": "2026-11-01",
       "must": "실제 스마트싱스 API 상태 및 이벤트 응답을 근거로 판정하며 추정하지 않는다.",
       "memo": "[2026-11-01] [2026-11-01] 조사 및 검증 완료: docs/device-capabilities.md 섹션 8 추가. 실제 스마트싱스 API 기기 상태 응답 조사 결과, 청정스테이션(station)은 HEPA 필터 및 먼지봉투 속성만 제공하고 정수통/오수통 탈착 감지 capability 및 속성이 전무함(Must). 물통 탈착 시 디바이스 이벤트 및 operatingState 상태 전이 없음. 이에 따라 물통 탈착을 통한 '자동 물 채움 감지 불가' 결론 확정(Done When) 및 앱 내 '물 채움' 버튼(REQ-019, D-14) 수동 초기화 방식 유지 확정. tests/test_device_capabilities.py 포함 242개 전체 테스트 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인."
+    },
+    {
+      "id": "LB-042",
+      "reqs": [],
+      "status": "done",
+      "priority": "핵심",
+      "category": "앱기반",
+      "title": "서버 주소·비밀키 영구 저장 및 앱 실행 시 자동 연결",
+      "done_when": "앱 재실행 시 저장된 서버 주소와 비밀키가 유지되고 자동으로 서버에 연결되어 메인 화면이 준비된다",
+      "where": "android/",
+      "parent": null,
+      "deps": [],
+      "doc": null,
+      "done_at": "2026-11-02",
+      "must": "연결 성공 시 주소와 비밀키를 저장하고(D-09), 앱 실행 시 자동 재연결한다.",
+      "memo": "[2026-11-02] [2026-11-02] 검증 완료: ServerClient(SharedPreferences 기반 saveCredentials, getSavedServerUrl, getSavedSharedSecret) 및 MainActivity(checkConnectionOnLaunch) 구현으로 앱 실행 시 자동 연결 및 영구 저장 정상 동작 확인. tests/test_android_client_improvements.py 통과."
+    },
+    {
+      "id": "LB-043",
+      "reqs": [],
+      "status": "done",
+      "priority": "핵심",
+      "category": "앱기반",
+      "title": "메인 화면 서버 주소 및 비밀키 입력 필드 텍스트 겹침 현상 수정",
+      "done_when": "앱 첫 실행 시 서버 주소와 비밀키 입력창에서 TextInputLayout 라벨과 TextInputEditText 힌트가 겹치지 않고 정상적으로 표시된다",
+      "where": "android/app/src/main/res/layout/activity_main.xml",
+      "parent": null,
+      "deps": [],
+      "doc": null,
+      "done_at": "2026-11-02",
+      "must": "TextInputLayout과 TextInputEditText의 힌트 중복을 제거하여 텍스트가 겹치지 않게 한다.",
+      "memo": "[2026-11-02] [2026-11-02] 검증 완료: activity_main.xml에서 TextInputEditText의 중복 힌트를 제거하고 TextInputLayout의 hint와 app:placeholderText 분리 구조를 적용하여 문자 겹침 현상 해결. tests/test_android_client_improvements.py 통과."
+    },
+    {
+      "id": "LB-044",
+      "reqs": ["REQ-019", "REQ-021", "REQ-001", "REQ-002", "REQ-012"],
+      "status": "done",
+      "priority": "핵심",
+      "category": "물관리",
+      "title": "물 관리 및 예약·쉬는기간 화면 진입 시 DateTimeFormatter 패턴 오류로 인한 앱 강제 종료 수정",
+      "done_when": "물 관리·예약 추가·예약 목록·쉬는 기간 목록 화면 진입 및 데이터 표시 시 앱 강제 종료 없이 KST 일시가 정상 표시된다",
+      "where": "android/app/src/main/java/com/smartthings/cleaner/",
+      "parent": null,
+      "deps": [],
+      "doc": null,
+      "done_at": "2026-11-02",
+      "must": "DateTimeFormatter.ofPattern 내 영문 리터럴(KST)은 작은따옴표('KST')로 이스케이프하여 ExceptionInInitializerError(Unknown pattern letter: T)가 발생하지 않게 한다.",
+      "memo": "[2026-11-02] [2026-11-02] 검증 완료: WaterTrackerItem, CreateReservationActivity, ReservationItem, OffPeriodItem 내 DateTimeFormatter.ofPattern 문자열의 리터럴 KST를 'KST'로 작은따옴표 이스케이프하여 Unknown pattern letter T로 인한 크래시(ExceptionInInitializerError) 원천 방지(Must, Done When). tests/test_android_skeleton.py에 전체 Kotlin 파일 패턴 정적 무결성 검증 테스트 추가. 전체 단위 테스트(252개), ruff, mypy, compileall 통과. code_reviewer 독립 검증 PASS 확인."
     }
   ]
 }

@@ -28,7 +28,7 @@ data class OffPeriodItem(
         val KST_ZONE: ZoneId = ZoneId.of("Asia/Seoul")
 
         private val DISPLAY_FORMATTER =
-            DateTimeFormatter.ofPattern("yyyy년 MM월 dd일 HH:mm (KST)", Locale.KOREAN)
+            DateTimeFormatter.ofPattern("yyyy년 MM월 dd일 HH:mm ('KST')", Locale.KOREAN)
 
         fun isDateTimeInOffPeriods(dateTime: ZonedDateTime, offPeriods: List<OffPeriodItem>): Boolean =
             offPeriods.any { it.contains(dateTime) }

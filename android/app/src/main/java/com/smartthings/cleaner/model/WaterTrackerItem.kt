@@ -16,7 +16,7 @@ data class WaterTrackerItem(
 ) {
     companion object {
         private val DISPLAY_FORMATTER =
-            DateTimeFormatter.ofPattern("yyyy년 MM월 dd일 HH:mm (KST)", Locale.KOREAN)
+            DateTimeFormatter.ofPattern("yyyy년 MM월 dd일 HH:mm ('KST')", Locale.KOREAN)
 
         fun fromJson(json: JSONObject): WaterTrackerItem {
             val count = json.optInt("mop_clean_count", 0)

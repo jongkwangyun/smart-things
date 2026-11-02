@@ -1,6 +1,7 @@
 import io
 import json
 import os
+import re
 import tempfile
 import unittest
 import xml.etree.ElementTree as ET
@@ -225,6 +226,44 @@ class TestClientServerProtocolIntegration(unittest.TestCase):
             self._simulate_server_client(self.server, "ftp://cleaner.local", self.secret).get("reason"),
             "INVALID_URL",
         )
+
+
+class TestAndroidDateTimeFormatters(unittest.TestCase):
+    """DateTimeFormatter 패턴 무결성 및 미지원 문자/이스케이프 검증 (LB-044, REQ-001, REQ-019)."""
+
+    VALID_LETTERS = set("GuydMLQqYwWEecFanKkhHmsSANnVOxXzp")
+
+    def test_no_unquoted_invalid_letters_in_patterns(self) -> None:
+        """DateTimeFormatter.ofPattern 내 미지원 영문자(특히 T 등) 및 'KST' 미이스케이프 방지."""
+        kotlin_files = list((ANDROID_ROOT / "app/src/main/java").rglob("*.kt"))
+        self.assertGreater(len(kotlin_files), 0, "코틀린 소스 파일이 존재해야 합니다.")
+
+        pattern_regex = re.compile(r'DateTimeFormatter\.ofPattern\(\s*"([^"]+)"')
+        found_patterns = 0
+
+        for kt_file in kotlin_files:
+            content = kt_file.read_text(encoding="utf-8")
+            for match in pattern_regex.finditer(content):
+                found_patterns += 1
+                pattern_str = match.group(1)
+
+                if "KST" in pattern_str:
+                    self.assertIn(
+                        "'KST'",
+                        pattern_str,
+                        f"{kt_file.name}의 패턴 '{pattern_str}'에서 KST는 'KST'로 이스케이프되어야 합니다.",
+                    )
+
+                unquoted = re.sub(r"'[^']*'", "", pattern_str)
+                for ch in unquoted:
+                    if ("a" <= ch <= "z") or ("A" <= ch <= "Z"):
+                        self.assertIn(
+                            ch,
+                            self.VALID_LETTERS,
+                            f"{kt_file.name}의 패턴 '{pattern_str}'에 미지원 패턴 문자 '{ch}'가 포함됨",
+                        )
+
+        self.assertGreaterEqual(found_patterns, 4, "최소 4개 이상의 DateTimeFormatter 패턴이 검사되어야 합니다.")
 
 
 if __name__ == "__main__":

@@ -47,3 +47,4 @@
 - 기기 API 관련 작업이 막히면 docs/device-capabilities.md 가 있는지 먼저 확인하고, 있으면 그 내용을 읽는다.
 - 집 밖 접속이 안 되면 미니PC 전원과 서버 상태 확인 주소 응답, 공유 비밀키, 스마트싱스 인증 만료 여부를 순서대로 확인한다.
 - 위 확인으로 풀리지 않으면 `py tools/backlog.py set <id> blocked` 로 상태를 바꾸고, 막힌 원인과 시도한 것을 memo 에 기록한 뒤 사용자에게 보고한다.
+- APK 서명은 android/app/smartthings-debug.keystore 로 고정한다. 바꾸거나 지우면 폰에서 업데이트 설치가 거부되므로 android/app/signing.sha256 과 CI 검증을 함께 확인한다.

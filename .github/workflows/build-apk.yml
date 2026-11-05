@@ -34,6 +34,14 @@ jobs:
         working-directory: android
         run: gradle assembleDebug --no-daemon --stacktrace
 
+      - name: Verify APK signing certificate is the pinned one
+        run: |
+          APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          ACTUAL=$("$APKSIGNER" verify --print-certs android/app/build/outputs/apk/debug/app-debug.apk | grep -m1 'SHA-256 digest' | awk '{print $NF}')
+          EXPECTED=$(tr -d '[:space:]' < android/app/signing.sha256)
+          echo "actual=$ACTUAL expected=$EXPECTED"
+          test "$ACTUAL" = "$EXPECTED"
+
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:

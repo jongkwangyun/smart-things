@@ -11,10 +11,21 @@ android {
         applicationId = "com.smartthings.cleaner"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
+        // CI 실행 번호로 증가시켜 같은 서명 위에서 항상 업데이트 설치가 가능하게 한다.
+        versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        // 모든 빌드(로컬/CI)가 같은 서명을 쓰도록 고정한다. 바꾸면 폰에서 업데이트 설치가 거부된다.
+        getByName("debug") {
+            storeFile = file("smartthings-debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
     }
 
     buildTypes {
@@ -27,6 +38,7 @@ android {
         }
         debug {
             applicationIdSuffix = ".debug"
+            signingConfig = signingConfigs.getByName("debug")
             isDebuggable = true
         }
     }

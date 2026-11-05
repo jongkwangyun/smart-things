@@ -15,7 +15,7 @@ from server.off_periods.auto_stop import DEFAULT_DEVICE_ID, AutoStopWatcher
 from server.reservations.service import ReservationService
 from server.server import MiniPCHandler, MiniPCServer
 from server.storage import Storage
-from server.time_utils import KST, format_kst
+from server.time_utils import format_kst, now_kst
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ANDROID_SRC = PROJECT_ROOT / "android/app/src/main/java/com/smartthings/cleaner"
@@ -68,7 +68,7 @@ class TestReservationOffPeriodWarning(unittest.TestCase):
         self.storage = Storage(self.db_path)
         cfg = Config(host="127.0.0.1", port=0, shared_secret="sec", db_path=self.db_path)
         self.server = MiniPCServer(cfg, self.storage)
-        self.now = datetime(2026, 11, 1, 10, 0, 0, tzinfo=KST)
+        self.now = now_kst().replace(second=0, microsecond=0)
         self.service = ReservationService(self.storage, now_func=lambda: self.now)
 
     def tearDown(self) -> None:

@@ -10,10 +10,10 @@ from server.smartthings.auth import SmartThingsTokenManager
 from server.time_utils import format_kst, now_kst
 
 SUPPORTED_OPERATING_STATES: list[str] = [
-    "homing", "charging", "charged", "chargingForRemainingJob", "moving", "cleaning", "paused", "idle",
-    "error", "powerSaving", "factoryReset", "relocal", "exploring", "patrol", "monitoring", "manual",
-    "processing", "messaging", "emitDust", "findingPet", "calibrating", "welcoming", "monitoringAutomation",
-    "washingMop", "sterilizingMop", "dryingMop", "supplyingWater", "preparingWater", "spinDrying", "flexCharged",
+    "homing", "charging", "charged", "chargingForRemainingJob", "moving", "cleaning", "paused", "idle", "error",
+    "powerSaving", "factoryReset", "relocal", "exploring", "patrol", "monitoring", "manual", "processing",
+    "messaging", "emitDust", "findingPet", "calibrating", "welcoming", "monitoringAutomation", "washingMop",
+    "sterilizingMop", "dryingMop", "supplyingWater", "preparingWater", "spinDrying", "flexCharged",
     "mopWashingPaused", "descaling", "drainingWater", "waitingForDescaling", "sabbath",
 ]
 
@@ -33,7 +33,6 @@ class SmartThingsApiError(SmartThingsError):
 @dataclass
 class DeviceStatus:
     """스마트싱스 로봇청소기 VR7MD97716G 상태 모델."""
-
     device_id: str
     model: str = "VR7MD97716G"
     name: str = "Bespoke AI Combo"
@@ -60,6 +59,9 @@ def make_simulated_status(
     battery: int = 100,
     dust_bag_status: str = "normal",
     motor_filter_status: str = "normal",
+    dnd_mode: str = "off",
+    dnd_start: str = "0000",
+    dnd_end: str = "0000",
 ) -> dict[str, Any]:
     """오프라인/테스트 환경용 VR7MD97716G 시뮬레이션 상태 딕셔너리 생성."""
     return {
@@ -71,18 +73,19 @@ def make_simulated_status(
                 "switch": {"switch": {"value": "on" if operating_state == "cleaning" else "off"}},
                 "custom.dustFilter": {"filterStatus": {"value": "normal"}},
                 "samsungce.robotCleanerMotorFilter": {"motorFilterStatus": {"value": motor_filter_status}},
+                "custom.doNotDisturbMode": {
+                    "doNotDisturb": {"value": dnd_mode},
+                    "startTime": {"value": dnd_start},
+                    "endTime": {"value": dnd_end},
+                },
             },
-            "station": {
-                "samsungce.robotCleanerDustBag": {"dustBagStatus": {"value": dust_bag_status}}
-            },
+            "station": {"samsungce.robotCleanerDustBag": {"dustBagStatus": {"value": dust_bag_status}}},
         }
     }
 
 
 def parse_failure_reason(
-    device_status: DeviceStatus | None,
-    health_state: str = "ONLINE",
-    fallback_unknown: bool = False,
+    device_status: DeviceStatus | None, health_state: str = "ONLINE", fallback_unknown: bool = False,
 ) -> str | None:
     """기기 상태 및 헬스 정보로부터 청소 실패 원인을 분석한다 (REQ-009, A-03)."""
     if str(health_state).upper() == "OFFLINE" or (device_status is not None and not device_status.is_online):
@@ -99,24 +102,21 @@ def parse_failure_reason(
         return "모터 필터 세척 필요"
     if device_status.operating_state == "error":
         return "기기 동작 오류 (error)"
-    if fallback_unknown:
-        return f"원인 미확인 (마지막 상태: {device_status.operating_state})"
-    return None
+    return f"원인 미확인 (마지막 상태: {device_status.operating_state})" if fallback_unknown else None
 
 
 class SmartThingsClient:
     """스마트싱스 REST API 통신 클라이언트."""
 
     def __init__(
-        self,
-        token_manager: SmartThingsTokenManager,
-        base_url: str = "https://api.smartthings.com/v1",
+        self, token_manager: SmartThingsTokenManager, base_url: str = "https://api.smartthings.com/v1",
         simulated: bool = False,
     ) -> None:
         self.token_manager = token_manager
         self.base_url = base_url.rstrip("/")
         self.simulated = simulated
         self.simulated_health = "ONLINE"
+        self.simulated_dnd: dict[str, str] = {"startTime": "0000", "endTime": "0000", "doNotDisturb": "off"}
 
     def get_device_status(self, device_id: str) -> DeviceStatus:
         """기기 상태를 조회한다 (/v1/devices/{device_id}/status).
@@ -126,7 +126,11 @@ class SmartThingsClient:
         token = self.token_manager.get_token()
 
         if self.simulated:
-            raw = make_simulated_status(device_id)
+            dnd = getattr(self, "simulated_dnd", {"startTime": "0000", "endTime": "0000", "doNotDisturb": "off"})
+            raw = make_simulated_status(
+                device_id, dnd_mode=dnd.get("doNotDisturb", "off"),
+                dnd_start=dnd.get("startTime", "0000"), dnd_end=dnd.get("endTime", "0000"),
+            )
             self.token_manager.logger.info("기기 상태 조회 성공 (시뮬레이션 모드): device_id=%s", device_id)
             return self._parse_status(device_id, raw)
 
@@ -158,9 +162,7 @@ class SmartThingsClient:
         401 Unauthorized 발생 시 자동으로 토큰을 갱신하고 1회 재시도한다.
         """
         if self.simulated:
-            self.token_manager.logger.info(
-                "기기 명령 전송 성공 (시뮬레이션 모드): device_id=%s, commands=%s", device_id, commands
-            )
+            self.token_manager.logger.info("기기 명령 성공 (시뮬): device_id=%s, cmds=%s", device_id, commands)
             return {"results": [{"id": "simulated-cmd-id", "status": "COMPLETED"}]}
 
         url = f"{self.base_url}/devices/{device_id}/commands"
@@ -199,46 +201,59 @@ class SmartThingsClient:
         return str(state).upper() if isinstance(state, str) else "UNKNOWN"
 
     def parse_failure_reason(
-        self,
-        device_status: DeviceStatus | None,
-        health_state: str = "ONLINE",
-        fallback_unknown: bool = False,
+        self, device_status: DeviceStatus | None, health_state: str = "ONLINE", fallback_unknown: bool = False,
     ) -> str | None:
         """기기 상태 및 헬스 정보로부터 청소 실패 원인을 분석한다 (REQ-009, A-03)."""
         return parse_failure_reason(device_status, health_state, fallback_unknown=fallback_unknown)
 
     def start_cleaning(self, device_id: str) -> dict[str, Any]:
         """청소 시작 명령을 전송한다 (samsungce.robotCleanerOperatingState: start)."""
-        cmd = [{
+        return self.execute_commands(device_id, [{
             "component": "main", "capability": "samsungce.robotCleanerOperatingState",
             "command": "start", "arguments": [],
-        }]
-        return self.execute_commands(device_id, cmd)
+        }])
 
     def return_to_home(self, device_id: str) -> dict[str, Any]:
         """청소 중단 및 충전 스테이션 복귀 명령을 전송한다 (samsungce.robotCleanerOperatingState: returnToHome)."""
-        cmd = [{
+        return self.execute_commands(device_id, [{
             "component": "main", "capability": "samsungce.robotCleanerOperatingState",
             "command": "returnToHome", "arguments": [],
-        }]
-        return self.execute_commands(device_id, cmd)
+        }])
 
     def stop_cleaning(self, device_id: str) -> dict[str, Any]:
         """청소 정지/복귀 명령 (return_to_home 호출)."""
         return self.return_to_home(device_id)
 
+    def get_dnd_status(self, device_id: str) -> dict[str, str]:
+        """기기 DND 설정 상태를 조회한다 (custom.doNotDisturbMode)."""
+        if self.simulated:
+            dnd = getattr(self, "simulated_dnd", {"startTime": "0000", "endTime": "0000", "doNotDisturb": "off"})
+            return dict(dnd)
+        st = self.get_device_status(device_id)
+        dnd = st.raw_status.get("components", {}).get("main", {}).get("custom.doNotDisturbMode", {})
+        return {
+            "startTime": str(dnd.get("startTime", {}).get("value", "0000")),
+            "endTime": str(dnd.get("endTime", {}).get("value", "0000")),
+            "doNotDisturb": str(dnd.get("doNotDisturb", {}).get("value", "off")),
+        }
+
+    def set_dnd_mode(self, device_id: str, start_time: str, end_time: str, mode: str) -> dict[str, Any]:
+        """기기 DND 설정을 변경한다 (custom.doNotDisturbMode: setDoNotDisturbMode)."""
+        cmd = [{
+            "component": "main", "capability": "custom.doNotDisturbMode",
+            "command": "setDoNotDisturbMode", "arguments": [str(start_time), str(end_time), str(mode)],
+        }]
+        if self.simulated:
+            self.simulated_dnd = {"startTime": str(start_time), "endTime": str(end_time), "doNotDisturb": str(mode)}
+        return self.execute_commands(device_id, cmd)
+
     def _request_json(
-        self,
-        url: str,
-        token: str,
-        method: str = "GET",
-        payload: dict[str, Any] | None = None,
+        self, url: str, token: str, method: str = "GET", payload: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
-        body: bytes | None = None
+        body = json.dumps(payload).encode("utf-8") if payload is not None else None
         if payload is not None:
             headers["Content-Type"] = "application/json"
-            body = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(url, data=body, headers=headers, method=method)
         try:
             with urllib.request.urlopen(req, timeout=10) as resp:
@@ -259,9 +274,8 @@ class SmartThingsClient:
         station = components.get("station", {})
 
         op_state = main.get("robotCleanerOperatingState", {}).get("operatingState", {}).get("value", "idle")
-        battery_val = main.get("battery", {}).get("battery", {}).get("value", 100)
         try:
-            battery = int(battery_val)
+            battery = int(main.get("battery", {}).get("battery", {}).get("value", 100))
         except (ValueError, TypeError):
             battery = 100
 
@@ -276,16 +290,10 @@ class SmartThingsClient:
         )
 
         return DeviceStatus(
-            device_id=device_id,
-            model="VR7MD97716G",
-            name="Bespoke AI Combo",
-            operating_state=str(op_state),
-            battery=battery,
-            is_online=True,
-            switch=str(switch_val),
-            dust_filter_status=str(filter_val),
-            dust_bag_status=str(dust_bag),
-            motor_filter_status=str(motor_filter),
-            raw_status=data,
-            checked_at=format_kst(now_kst()),
+            device_id=device_id, model="VR7MD97716G", name="Bespoke AI Combo",
+            operating_state=str(op_state), battery=battery, is_online=True,
+            switch=str(switch_val), dust_filter_status=str(filter_val),
+            dust_bag_status=str(dust_bag), motor_filter_status=str(motor_filter),
+            raw_status=data, checked_at=format_kst(now_kst()),
         )
+

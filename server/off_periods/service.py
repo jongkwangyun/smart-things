@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Callable
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from server.models import OffPeriod
 from server.off_periods.validator import (
@@ -12,6 +12,9 @@ from server.off_periods.validator import (
 )
 from server.storage import Storage
 from server.time_utils import now_kst
+
+if TYPE_CHECKING:
+    from server.off_periods.dnd_sync import DndSyncManager
 
 
 class OffPeriodConflictError(OffPeriodError):
@@ -25,9 +28,11 @@ class OffPeriodService:
         self,
         storage: Storage,
         now_func: Callable[[], datetime] | None = None,
+        dnd_sync_manager: DndSyncManager | None = None,
     ) -> None:
         self.storage = storage
         self.now_func = now_func or now_kst
+        self.dnd_sync_manager = dnd_sync_manager
 
     def create_off_period(
         self_or_storage: Any,
@@ -39,7 +44,9 @@ class OffPeriodService:
         클래스/함수형 호출: `OffPeriodService.create_off_period(storage, payload)`
         두 방식을 모두 지원한다.
         """
+        service_instance: OffPeriodService | None = None
         if isinstance(self_or_storage, OffPeriodService):
+            service_instance = self_or_storage
             storage: Storage = self_or_storage.storage
             now_func = self_or_storage.now_func
             assert payload_or_data is not None
@@ -64,7 +71,13 @@ class OffPeriodService:
             created_at=created_now,
         )
 
-        return storage.save_off_period(off_period)
+        saved = storage.save_off_period(off_period)
+        if service_instance is not None and service_instance.dnd_sync_manager is not None:
+            try:
+                service_instance.dnd_sync_manager.sync(created_now)
+            except Exception:
+                pass
+        return saved
 
     def list_off_periods(self) -> list[OffPeriod]:
         """모든 쉬는 기간 목록을 반환한다."""
@@ -76,4 +89,11 @@ class OffPeriodService:
 
     def delete_off_period(self, op_id: str) -> bool:
         """지정된 ID의 쉬는 기간을 삭제한다."""
-        return self.storage.delete_off_period(op_id)
+        deleted = self.storage.delete_off_period(op_id)
+        if deleted and self.dnd_sync_manager is not None:
+            try:
+                self.dnd_sync_manager.sync(self.now_func())
+            except Exception:
+                pass
+        return deleted
+

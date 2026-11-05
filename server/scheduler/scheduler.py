@@ -18,6 +18,7 @@ from server.time_utils import format_kst, now_kst
 if TYPE_CHECKING:
     from server.notify.service import NotificationService
     from server.off_periods.auto_stop import AutoStopWatcher
+    from server.off_periods.dnd_sync import DndSyncManager
     from server.water.service import WaterService
 
 DEFAULT_DEVICE_ID = "03431570-5acf-f89e-7b39-275ce15d3258"
@@ -56,6 +57,7 @@ class ReservationScheduler:
         notification_service: NotificationService | None = None,
         auto_stop_watcher: AutoStopWatcher | None = None,
         water_service: WaterService | None = None,
+        dnd_sync_manager: DndSyncManager | None = None,
     ) -> None:
         self.storage = storage
         self.log_file = Path(log_file)
@@ -65,6 +67,13 @@ class ReservationScheduler:
         self.poll_interval = max(0.05, float(poll_interval))
         self.now_func = now_func
         self.notification_service = notification_service
+        if dnd_sync_manager is not None:
+            self.dnd_sync_manager = dnd_sync_manager
+        else:
+            from server.off_periods.dnd_sync import DndSyncManager
+            self.dnd_sync_manager = DndSyncManager(
+                storage=self.storage, client=self.client, device_id=self.device_id,
+            )
         if auto_stop_watcher is not None:
             self.auto_stop_watcher = auto_stop_watcher
         else:
@@ -113,7 +122,7 @@ class ReservationScheduler:
             self._thread.join(timeout=timeout)
         self.logger.info("스케줄러 중지 완료")
 
-    def step(self) -> list[Reservation]:
+    def step(self, now: datetime | None = None) -> list[Reservation]:
         """예약 상태를 검사하고 예약 시각이 된 청소 시작 명령을 실행한다 (REQ-005, D-08).
 
         - 예정(STATUS_SCHEDULED) 상태이면서 아직 실행되지 않은 예약(executed_at is None) 대상
@@ -121,15 +130,15 @@ class ReservationScheduler:
         - 명령 전송 직전에 영구 저장소에 executed_at을 기록하여 중복 실행 방지 (REQ-006, LB-016)
         - 청소 시작 명령(start) 전송 후 server/logs/scheduler.log에 기록
         - 예약 시각 ±5분 내 청소 시작 확인 후 '성공' 상태 전이 (REQ-007, D-10, LB-017)
+        - 쉬는 기간 DND 동기화(REQ-016, LB-045) 및 AutoStop 2차 방어선 유지
         """
-        now = self.now_func()
+        now = now if now is not None else self.now_func()
         reservations = self.storage.list_reservations()
         executed: list[Reservation] = []
 
         for r in reservations:
             # 1. 미실행 예약 처리 (REQ-005, REQ-027)
             if r.status == STATUS_SCHEDULED and r.executed_at is None:
-                # 5분 초과 지연된 예약: 누락 처리 (REQ-027)
                 if (now - r.reserved_at) > MISSED_THRESHOLD:
                     r.status, r.failure_reason, r.updated_at = STATUS_MISSED, "예약 시각 5분 경과로 누락 처리됨", now
                     self.storage.save_reservation(r)
@@ -168,6 +177,12 @@ class ReservationScheduler:
                     self._check_and_mark_success(r, now)
                 else:
                     self._mark_failure(r, now)
+
+        if self.dnd_sync_manager is not None:
+            try:
+                self.dnd_sync_manager.sync(now)
+            except Exception as e:
+                self.logger.exception("DND 동기화 매니저 실행 중 오류 발생: %s", e)
 
         if self.auto_stop_watcher is not None:
             if self.auto_stop_watcher.notification_service is None and self.notification_service is not None:
@@ -214,10 +229,7 @@ class ReservationScheduler:
         self.storage.save_reservation(r)
         self.logger.warning(
             "청소 시작 확인 실패: res_id=%s, reserved_at=%s, failure_reason=%s, last_device_state=%s",
-            r.id,
-            format_kst(r.reserved_at),
-            r.failure_reason,
-            r.last_device_state,
+            r.id, format_kst(r.reserved_at), r.failure_reason, r.last_device_state,
         )
 
         if self.notification_service is not None:
@@ -232,9 +244,7 @@ class ReservationScheduler:
                     res = send_fn(title=title, body=body, data=data)
                     self.logger.info(
                         "청소 실패 알림 발송 완료: res_id=%s, targets=%d, success=%d, failure=%d",
-                        r.id,
-                        getattr(res, "total_targets", 0),
-                        getattr(res, "success_count", 0),
+                        r.id, getattr(res, "total_targets", 0), getattr(res, "success_count", 0),
                         getattr(res, "failure_count", 0),
                     )
             except Exception as e:
@@ -252,9 +262,7 @@ class ReservationScheduler:
         except Exception as e:
             self.logger.warning(
                 "청소 상태 확인 중 기기 조회 실패: res_id=%s, device_id=%s, error=%s",
-                r.id,
-                self.device_id,
-                e,
+                r.id, self.device_id, e,
             )
             return False
 
@@ -271,11 +279,7 @@ class ReservationScheduler:
                     self.logger.warning("물걸레 청소 횟수 기록 실패: %s", e)
             self.logger.info(
                 "청소 시작 확인 완료 (성공): res_id=%s, reserved_at=%s, device_id=%s, state=%s, confirmed_at=%s",
-                r.id,
-                format_kst(r.reserved_at),
-                self.device_id,
-                r.last_device_state,
-                format_kst(now),
+                r.id, format_kst(r.reserved_at), self.device_id, r.last_device_state, format_kst(now),
             )
             return True
         return False

@@ -11,7 +11,7 @@
 - BRIEF.md — 프로젝트 목적, 사용자, 제약, 성공 기준의 기준.
 - SPEC.md — 요구사항(REQ-NNN), 결정(D-NN), 가정(A-NN), 수용 기준(AC-N)의 기준.
 - backlog.json — 구현 작업(LB-NNN)의 상태, 완료 조건(done_when), 핵심 규칙(must), 연결된 REQ(reqs)의 기준.
-- tools/backlog.py — backlog.json 을 읽고 쓰는 유일한 도구. 하위 명령은 list, show, find, add, set, memo, validate.
+- tools/backlog.py — backlog.json 을 읽고 쓰는 유일한 도구. 하위 명령은 list, show, find, add, set, memo, deps, validate.
 - pyproject.toml — 개발 도구(ruff, mypy) 설정과 Stop 훅의 검사 명령·코드 파일 크기 기준(300줄 초과 경고, 500줄 초과 실패)의 기준.
 - .codex/hooks/block_backlog_access.py — backlog.json 을 tools/backlog.py 없이 읽거나 고치는 도구 호출을 막는 PreToolUse 훅.
 - .codex/hooks/stop_quality_gate.py — 응답 종료 전에 lint, build, 타입 체크, 코드 파일 크기를 검사하는 Stop 훅.

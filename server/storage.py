@@ -3,6 +3,7 @@ from __future__ import annotations
 import sqlite3
 import threading
 from pathlib import Path
+from typing import Any
 
 from server.models import (
     AutoStopEvent,
@@ -130,12 +131,7 @@ class Storage:
         with self._lock:
             rows = self._conn.execute("SELECT * FROM off_periods ORDER BY start_at ASC").fetchall()
             return [
-                OffPeriod(
-                    id=r["id"],
-                    start_at=parse_kst(r["start_at"]),
-                    end_at=parse_kst(r["end_at"]),
-                    created_at=parse_kst(r["created_at"]),
-                )
+                OffPeriod(r["id"], parse_kst(r["start_at"]), parse_kst(r["end_at"]), parse_kst(r["created_at"]))
                 for r in rows
             ]
 
@@ -155,11 +151,8 @@ class Storage:
                 success=excluded.success, details=excluded.details;
         """
         vals = (
-            event.id,
-            format_kst(event.occurred_at),
-            event.off_period_id,
-            1 if event.success else 0,
-            event.details,
+            event.id, format_kst(event.occurred_at), event.off_period_id,
+            1 if event.success else 0, event.details,
         )
         with self._lock:
             self._conn.execute(sql, vals)
@@ -171,11 +164,7 @@ class Storage:
             rows = self._conn.execute("SELECT * FROM auto_stop_events ORDER BY occurred_at DESC").fetchall()
             return [
                 AutoStopEvent(
-                    id=r["id"],
-                    occurred_at=parse_kst(r["occurred_at"]),
-                    off_period_id=r["off_period_id"],
-                    success=bool(r["success"]),
-                    details=r["details"],
+                    r["id"], parse_kst(r["occurred_at"]), r["off_period_id"], bool(r["success"]), r["details"],
                 )
                 for r in rows
             ]
@@ -246,18 +235,49 @@ class Storage:
         with self._lock:
             rows = self._conn.execute("SELECT * FROM notification_targets ORDER BY updated_at ASC").fetchall()
             return [
-                NotificationTarget(
-                    id=r["id"],
-                    device_id=r["device_id"],
-                    push_token=r["push_token"],
-                    updated_at=parse_kst(r["updated_at"]),
-                )
+                NotificationTarget(r["id"], r["device_id"], r["push_token"], parse_kst(r["updated_at"]))
                 for r in rows
             ]
 
     def delete_notification_target(self, device_id: str) -> bool:
         with self._lock:
             cur = self._conn.execute("DELETE FROM notification_targets WHERE device_id = ?", (device_id,))
+            self._conn.commit()
+            return cur.rowcount > 0
+
+    # --- DND Backup ---
+    def save_dnd_backup(self, backup: dict[str, Any], backup_id: str = "default") -> dict[str, Any]:
+        s_time = str(backup.get("startTime") or backup.get("start_time") or "0000")
+        e_time = str(backup.get("endTime") or backup.get("end_time") or "0000")
+        mode = str(backup.get("doNotDisturb") or backup.get("mode") or "off")
+        now_str = format_kst(now_kst())
+        sql = """
+            INSERT INTO dnd_backup (id, start_time, end_time, mode, created_at) VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET start_time=excluded.start_time, end_time=excluded.end_time,
+                mode=excluded.mode, created_at=excluded.created_at;
+        """
+        with self._lock:
+            self._conn.execute(sql, (backup_id, s_time, e_time, mode, now_str))
+            self._conn.commit()
+            return {
+                "startTime": s_time, "endTime": e_time, "doNotDisturb": mode,
+                "start_time": s_time, "end_time": e_time, "mode": mode, "created_at": now_str,
+            }
+
+    def get_dnd_backup(self, backup_id: str = "default") -> dict[str, Any] | None:
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM dnd_backup WHERE id = ?", (backup_id,)).fetchone()
+            if not row:
+                return None
+            return {
+                "startTime": row["start_time"], "endTime": row["end_time"], "doNotDisturb": row["mode"],
+                "start_time": row["start_time"], "end_time": row["end_time"], "mode": row["mode"],
+                "created_at": row["created_at"],
+            }
+
+    def clear_dnd_backup(self, backup_id: str = "default") -> bool:
+        with self._lock:
+            cur = self._conn.execute("DELETE FROM dnd_backup WHERE id = ?", (backup_id,))
             self._conn.commit()
             return cur.rowcount > 0
 

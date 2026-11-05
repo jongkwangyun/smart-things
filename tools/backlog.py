@@ -386,6 +386,34 @@ def cmd_memo(data, args, path):
     print(f"{tid}: memo {'교체' if args.replace else '기록'}됨")
 
 
+def cmd_deps(data, args, path):
+    tid = args.id.upper()
+    task = next((t for t in data["tasks"] if t.get("id") == tid), None)
+    if task is None:
+        die(f"없는 id: {args.id}")
+    ids = [d.upper() for d in split_list(args.ids)]
+    modes = sum(bool(x) for x in (args.add, args.remove, args.clear))
+    if modes > 1 or (args.clear and ids) or (not args.clear and not ids):
+        die("사용법: deps <id> <선행id...> (교체) | --add | --remove | --clear (id 없이)")
+    old = list(task.get("deps") or [])
+    if args.clear:
+        new: list[str] = []
+    elif args.add:
+        new = old + [d for d in ids if d not in old]
+    elif args.remove:
+        new = [d for d in old if d not in ids]
+    else:
+        new = list(dict.fromkeys(ids))
+    spec = load_spec_reqs(spec_path(path, data))
+    before = set(validate(data, spec))
+    task["deps"] = new
+    added = [e for e in validate(data, spec) if e not in before]
+    if added:
+        die("deps 변경 거부 — " + "; ".join(added))
+    save(path, data)
+    print(f"{tid}: deps {', '.join(old) or '(없음)'} -> {', '.join(new) or '(없음)'}")
+
+
 def cmd_validate(data, args, path):
     spec = load_spec_reqs(spec_path(path, data))
     if spec is None:
@@ -434,6 +462,14 @@ def build_parser():
     s.add_argument("--replace", action="store_true", help="기존 memo 를 교체")
     s.add_argument("--clear", action="store_true", help="memo 를 null 로 비움")
     s.set_defaults(fn=cmd_memo)
+
+    s = sub.add_parser("deps", help="deps(선행 작업) 변경 (기본: 교체)")
+    s.add_argument("id")
+    s.add_argument("ids", nargs="*", help="공백 또는 쉼표로 구분")
+    s.add_argument("--add", action="store_true", help="기존 deps 에 추가")
+    s.add_argument("--remove", action="store_true", help="기존 deps 에서 제거")
+    s.add_argument("--clear", action="store_true", help="deps 를 비움")
+    s.set_defaults(fn=cmd_deps)
 
     sub.add_parser("validate", help="필드·enum·id·참조 검사").set_defaults(fn=cmd_validate)
     return p

@@ -6,6 +6,7 @@ from server.off_periods.auto_stop import (
     AutoStopWatcher,
     is_cleaner_cleaning,
 )
+from server.off_periods.dnd_sync import DndSyncManager
 from server.off_periods.service import (
     OffPeriodConflictError,
     OffPeriodError,
@@ -20,6 +21,7 @@ __all__ = [
     "DEFAULT_DEVICE_ID",
     "AutoStopService",
     "AutoStopWatcher",
+    "DndSyncManager",
     "OffPeriodConflictError",
     "OffPeriodError",
     "OffPeriodService",

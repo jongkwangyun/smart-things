@@ -19,3 +19,6 @@ firebase-credentials*.json
 *.fcm.json
 server/deploy/task_instance.xml
 
+
+smartthings.exe
+*.exe

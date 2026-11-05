@@ -43,4 +43,12 @@ CREATE TABLE IF NOT EXISTS notification_targets (
     push_token TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS dnd_backup (
+    id TEXT PRIMARY KEY,
+    start_time TEXT NOT NULL,
+    end_time TEXT NOT NULL,
+    mode TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
 """

@@ -133,7 +133,8 @@ class MiniPCHandler(BaseHTTPRequestHandler):
                 return self._send_json(HTTPStatus.CREATED, res.to_dict())
             if path == "/api/off-periods":
                 assert data is not None
-                op = OffPeriodService(storage).create_off_period(data)
+                dnd_m = getattr(self.server.scheduler, "dnd_sync_manager", None)
+                op = OffPeriodService(storage, dnd_sync_manager=dnd_m).create_off_period(data)
                 return self._send_json(HTTPStatus.CREATED, op.to_dict())
             if path == "/api/auto-stop-events":
                 assert data is not None
@@ -208,8 +209,10 @@ class MiniPCHandler(BaseHTTPRequestHandler):
             )
         if path.startswith("/api/off-periods/"):
             oid = path.removeprefix("/api/off-periods/")
+            dnd_m = getattr(self.server.scheduler, "dnd_sync_manager", None)
             return self._send_delete(
-                storage.delete_off_period(oid), {"deleted": True, "id": oid}, f"OffPeriod {oid} not found"
+                OffPeriodService(storage, dnd_sync_manager=dnd_m).delete_off_period(oid),
+                {"deleted": True, "id": oid}, f"OffPeriod {oid} not found",
             )
         if path.startswith("/api/notification-targets/"):
             dev_id = path.removeprefix("/api/notification-targets/")
@@ -265,13 +268,9 @@ class MiniPCServer(ThreadingHTTPServer):
 
 
 def create_server(
-    config: Config | None = None,
-    db_path: Path | str | None = None,
-    shared_secret: str | None = None,
-    ssl_cert_path: Path | str | None = None,
-    ssl_key_path: Path | str | None = None,
-    notification_service: NotificationService | None = None,
-    scheduler: ReservationScheduler | None = None,
+    config: Config | None = None, db_path: Path | str | None = None, shared_secret: str | None = None,
+    ssl_cert_path: Path | str | None = None, ssl_key_path: Path | str | None = None,
+    notification_service: NotificationService | None = None, scheduler: ReservationScheduler | None = None,
 ) -> MiniPCServer:
     cfg = config or Config.from_env()
     cfg.db_path = Path(db_path) if db_path is not None else cfg.db_path

@@ -148,11 +148,26 @@ class TestAndroidCreateOffPeriodLayoutAndResources(unittest.TestCase):
             self.assertIn(req_id, ids, f"activity_create_off_period.xml에 '{req_id}' 누락")
 
     def test_main_activity_has_create_off_period_button(self) -> None:
-        """activity_main.xml에 '쉬는 기간 등록' 버튼(btnCreateOffPeriod) 존재 확인 (SPEC F-3)."""
-        tree = ET.parse(RES_LAYOUT / "activity_main.xml")
+        """쉬는 기간 등록 진입 경로 존재 확인 (SPEC F-3).
+
+        LB-047로 메인은 연결 전용이 되고 홈이 신설되어 진입 경로가
+        홈 '쉬는 기간' 타일(tileOffPeriod) -> 쉬는 기간 목록의 추가 버튼(btnAddOffPeriod)
+        -> 등록 화면(CreateOffPeriodActivity)으로 이동했다. 요구(등록 진입 가능)는 유지하고 대상만 갱신한다.
+        """
         ns = "http://schemas.android.com/apk/res/android"
-        ids = {e.attrib.get(f"{{{ns}}}id", "").split("/")[-1] for e in tree.iter()}
-        self.assertIn("btnCreateOffPeriod", ids)
+
+        def layout_ids(name: str) -> set[str]:
+            tree = ET.parse(RES_LAYOUT / name)
+            return {e.attrib.get(f"{{{ns}}}id", "").split("/")[-1] for e in tree.iter()}
+
+        self.assertIn("tileOffPeriod", layout_ids("activity_home.xml"))
+        self.assertIn("btnAddOffPeriod", layout_ids("activity_off_period_list.xml"))
+        src = ANDROID_ROOT / "app/src/main/java/com/smartthings/cleaner"
+        home = (src / "HomeActivity.kt").read_text(encoding="utf-8")
+        listing = (src / "OffPeriodListActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("R.id.tileOffPeriod", home)
+        self.assertIn("OffPeriodListActivity::class.java", home)
+        self.assertIn("CreateOffPeriodActivity::class.java", listing)
 
     def test_manifest_activity_declared_with_responsive_config(self) -> None:
         """AndroidManifest.xml에 CreateOffPeriodActivity 등록 및 폴더블 설정 검증 (REQ-028, REQ-029)."""

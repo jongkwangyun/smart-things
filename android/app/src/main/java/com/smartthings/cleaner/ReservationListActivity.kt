@@ -1,7 +1,5 @@
 package com.smartthings.cleaner
 
-import android.app.DatePickerDialog
-import android.app.TimePickerDialog
 import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -10,6 +8,7 @@ import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -21,12 +20,7 @@ import com.smartthings.cleaner.network.ServerClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.time.LocalDate
-import java.time.LocalTime
-import java.time.ZoneId
 import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 /**
  * 1회성 청소 예약 목록 액티비티.
@@ -219,19 +213,22 @@ class ReservationListActivity : AppCompatActivity() {
         }
     }
 
+    private var editingItem: ReservationItem? = null
+    private val editLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
+        val item = editingItem
+        val isoStr = res.data?.getStringExtra(CreateReservationActivity.RESULT_SCHEDULED_AT)
+        if (res.resultCode != RESULT_OK || item == null || isoStr == null) return@registerForActivityResult
+        // 과거 시각 차단은 피커 화면(CreateReservationActivity)이 수행. 이후 쉬는 기간 경고·수정 호출은 기존 흐름 그대로.
+        checkAndPerformUpdate(item.id, ZonedDateTime.parse(isoStr), isoStr)
+    }
+
+    /** 예약 수정: 공용 피커 화면(달력+시간 휠, LB-049)을 선택 전용 모드로 열어 새 일시를 받는다. */
     fun showEditPickers(item: ReservationItem) {
-        val kstZone = ZoneId.of("Asia/Seoul")
-        val initialDateTime = try { ZonedDateTime.parse(item.scheduledAt).withZoneSameInstant(kstZone) } catch (_: Exception) { ZonedDateTime.now(kstZone).plusDays(1).withHour(10).withMinute(0) }
-        var chosenDate = initialDateTime.toLocalDate()
-        DatePickerDialog(this, { _, year, month, dayOfMonth ->
-            chosenDate = LocalDate.of(year, month + 1, dayOfMonth)
-            TimePickerDialog(this, { _, hourOfDay, minute ->
-                val newDt = ZonedDateTime.of(chosenDate, LocalTime.of(hourOfDay, minute), kstZone)
-                if (!newDt.isAfter(ZonedDateTime.now(kstZone))) return@TimePickerDialog showError("과거 시각은 예약할 수 없습니다.")
-                val isoStr = newDt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:00+09:00", Locale.ROOT))
-                checkAndPerformUpdate(item.id, newDt, isoStr)
-            }, initialDateTime.hour, initialDateTime.minute, true).show()
-        }, chosenDate.year, chosenDate.monthValue - 1, chosenDate.dayOfMonth).show()
+        editingItem = item
+        editLauncher.launch(Intent(this, CreateReservationActivity::class.java).apply {
+            putExtra(CreateReservationActivity.EXTRA_PICK_ONLY, true)
+            putExtra(CreateReservationActivity.EXTRA_SCHEDULED_AT, item.scheduledAt)
+        })
     }
 
     fun checkAndPerformUpdate(reservationId: String, newDt: ZonedDateTime, isoStr: String) {

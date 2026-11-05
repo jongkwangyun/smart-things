@@ -36,6 +36,8 @@
     <string name="subtitle_create_reservation">청소 날짜와 시각을 선택해 1회성 청소를 예약합니다.</string>
     <string name="section_reservations">예약 관리</string>
     <string name="btn_add_reservation">예약 추가</string>
+    <string name="title_edit_reservation">예약 일시 수정</string>
+    <string name="btn_save_edit_reservation">수정 저장</string>
     <string name="btn_save_reservation">예약 저장</string>
     <string name="btn_saving_reservation">저장 중…</string>
     <string name="btn_pick_date">날짜 선택</string>
@@ -77,6 +79,9 @@
     <string name="btn_saving_off_period">저장 중…</string>
     <string name="label_select_start">시작 일시 선택</string>
     <string name="label_select_end">종료 일시 선택</string>
+    <string name="tab_off_period_start">시작</string>
+    <string name="tab_off_period_end">종료</string>
+    <string name="label_off_period_duration">기간: %1$s</string>
     <string name="label_off_period_preview">선택된 쉬는 기간 (KST)</string>
     <string name="msg_confirm_off_period_created">쉬는 기간이 등록되었습니다</string>
     <string name="msg_error_invalid_off_period_range">종료 일시는 시작 일시보다 뒤여야 합니다.</string>
@@ -120,6 +125,10 @@
     <string name="label_last_refilled_at">마지막 물 채움 일시</string>
     <string name="label_alert_threshold">알림 기준 횟수</string>
     <string name="msg_confirm_water_refilled">물 채움이 기록되었습니다 (청소 횟수 0회 초기화)</string>
+    <!-- LB-053 물 채움 확인 대화상자 -->
+    <string name="dialog_title_confirm_refill">물 채움을 기록할까요?</string>
+    <string name="dialog_msg_confirm_refill">물 채움은 청소 횟수 0회 초기화이며 되돌릴 수 없습니다. 물통에 물을 실제로 채웠을 때만 확인을 눌러 주세요.</string>
+    <string name="btn_refill_confirm">물 채움 기록</string>
     <string name="msg_loading_water_tracker">물 관리 정보를 불러오는 중…</string>
     <string name="text_count_times">%1$d회</string>
     <string name="text_alert_threshold_format">%1$d회 (도달 시 푸시 알림)</string>
@@ -133,4 +142,24 @@
     <string name="btn_save">저장</string>
     <string name="msg_error_invalid_threshold">1 이상의 정수만 입력할 수 있습니다.</string>
     <string name="msg_success_threshold_updated">알림 기준 횟수가 %d회로 변경되었습니다.</string>
+
+    <!-- LB-047 홈 화면 개편 -->
+    <string name="subtitle_connect_first">처음 한 번만 서버 주소와 공유 비밀키로 연결하면 이후에는 자동으로 열립니다.</string>
+    <string name="btn_settings">설정</string>
+    <string name="title_settings">설정</string>
+    <string name="btn_change_server">서버 주소 변경</string>
+    <string name="label_next_reservation">다음 예약</string>
+    <string name="home_loading">불러오는 중…</string>
+    <string name="home_loading_failed">불러오지 못했습니다</string>
+    <string name="home_no_next_reservation">예정된 예약이 없습니다</string>
+    <string name="home_conn_connecting">● 서버 연결 확인 중…</string>
+    <string name="home_conn_connected">● 연결됨 · %1$s</string>
+    <string name="home_conn_failed">● 연결 실패 · %1$s</string>
+    <string name="home_counts">예정 %1$d건 · 지난 %2$d건</string>
+    <string name="home_counts_needs_check">예정 %1$d건 · 지난 %2$d건 · 시각 경과 확인 필요 %3$d건</string>
+    <string name="home_counts_hint">예정은 지금 이후의 예정 예약, 지난은 성공·실패·누락·취소 예약입니다.</string>
+    <string name="home_section_error">불러오지 못했습니다: %1$s</string>
+    <string name="tile_off_period">쉬는 기간</string>
+    <string name="tile_off_period_desc">청소하지 않을 기간을 등록하고 확인합니다</string>
+    <string name="home_water_summary">물 채운 뒤 청소 %1$d / 기준 %2$d회</string>
 </resources>

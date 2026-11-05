@@ -204,14 +204,17 @@ class TestAndroidOffPeriodList(unittest.TestCase):
         self.assertIsNotNone(container, "Fold8/S21+ 반응형 640dp 최대 너비 제약 누락")
 
     def test_main_activity_and_manifest_registration(self) -> None:
-        """MainActivity의 쉬는 기간 목록 버튼 및 AndroidManifest 등록 검증."""
-        main_tree = ET.parse(RES_LAYOUT / "activity_main.xml")
+        """쉬는 기간 목록 진입 및 AndroidManifest 등록 검증.
+
+        LB-047로 진입점이 MainActivity의 btnOffPeriodList에서 홈의 tileOffPeriod 타일(HomeActivity)로 이동했다.
+        """
+        main_tree = ET.parse(RES_LAYOUT / "activity_home.xml")
         ns = "http://schemas.android.com/apk/res/android"
         main_ids = {elem.attrib.get(f"{{{ns}}}id", "").split("/")[-1] for elem in main_tree.iter()}
-        self.assertIn("btnOffPeriodList", main_ids, "activity_main.xml에 btnOffPeriodList 누락")
+        self.assertIn("tileOffPeriod", main_ids, "activity_home.xml에 tileOffPeriod 누락")
 
-        main_kt = (SRC_JAVA / "MainActivity.kt").read_text(encoding="utf-8")
-        self.assertIn("btnOffPeriodList", main_kt)
+        main_kt = (SRC_JAVA / "HomeActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("tileOffPeriod", main_kt)
         self.assertIn("OffPeriodListActivity::class.java", main_kt)
 
         manifest_tree = ET.parse(MANIFEST_PATH)

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:parentTag="android.widget.LinearLayout">
+
+    <CalendarView
+        android:id="@+id/dtpCalendar"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:firstDayOfWeek="1" android:showWeekNumber="false" />
+
+    <com.smartthings.cleaner.RangeCalendarView
+        android:id="@+id/dtpRangeCalendar"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="8dp" android:gravity="center"
+        android:orientation="horizontal">
+
+        <NumberPicker
+            android:id="@+id/dtpAmPm"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:descendantFocusability="blocksDescendants" />
+
+        <NumberPicker
+            android:id="@+id/dtpHour"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:descendantFocusability="blocksDescendants" />
+
+        <TextView
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginStart="6dp" android:layout_marginEnd="6dp"
+            android:text=":" android:textColor="@color/text_primary" android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <NumberPicker
+            android:id="@+id/dtpMinute"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:descendantFocusability="blocksDescendants" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/dtpSummary"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="8dp" android:gravity="center"
+        android:textColor="@color/primary" android:textSize="16sp" android:textStyle="bold"
+        tools:text="2026-11-05 (목) 오후 3:07 KST" />
+
+    <TextView
+        android:id="@+id/dtpRangeHint"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="2dp" android:gravity="center"
+        android:textColor="@color/text_secondary" android:textSize="12sp"
+        android:visibility="gone" tools:text="범위: ..." />
+</merge>

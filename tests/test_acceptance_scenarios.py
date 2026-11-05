@@ -200,6 +200,7 @@ class TestAcceptanceScenarios(unittest.TestCase):
             "activity_main.xml", "activity_create_reservation.xml",
             "activity_reservation_list.xml", "activity_create_off_period.xml",
             "activity_off_period_list.xml", "activity_water_management.xml",
+            "activity_home.xml", "activity_settings.xml",  # LB-047 신규 화면도 REQ-029 적용
         ]
         ns = {"app": "http://schemas.android.com/apk/res-auto", "android": "http://schemas.android.com/apk/res/android"}
         for xml_name in activity_layouts:

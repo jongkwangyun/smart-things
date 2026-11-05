@@ -106,7 +106,17 @@ class TestAndroidServerWarningStringsAndLayout(unittest.TestCase):
         self.assertIn("textServerWarningTitle", activity_kt)
         self.assertIn("textServerWarningMessage", activity_kt)
         self.assertIn("R.string.server_unreachable_warning", activity_kt)
-        self.assertIn("checkConnectionOnLaunch", activity_kt)
+        # LB-047: 실행 시 자동 연결(구 checkConnectionOnLaunch)은 HomeActivity.loadHome으로 이동했다.
+        home_kt = (SRC_MAIN_JAVA / "HomeActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("serverClient.testConnection(", home_kt)
+        self.assertIn("R.string.home_conn_failed", home_kt)
+        # LB-029/REQ-025: 홈에서도 UNREACHABLE이면 '서버에 연결할 수 없음' 경고 카드를 노출, 그 외(401 등)는 숨김
+        self.assertIn("cardServerWarning", home_kt)
+        self.assertIn("ConnectionError.UNREACHABLE", home_kt)
+        self.assertIn("View.VISIBLE else View.GONE", home_kt)
+        home_xml = (ANDROID_ROOT / "app/src/main/res/layout/activity_home.xml").read_text(encoding="utf-8")
+        self.assertIn("@+id/cardServerWarning", home_xml)
+        self.assertIn("@string/server_unreachable_warning", home_xml)
 
 
 class TestAppLaunchConnectionWarningFlow(unittest.TestCase):

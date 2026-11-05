@@ -36,120 +36,94 @@
                 android:text="@string/subtitle_create_off_period"
                 android:textColor="@color/text_secondary" android:textSize="13sp" />
 
-            <!-- Start DateTime Selection Card -->
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/cardStartDateSelection"
+            <!-- 시작/종료 탭: 같은 피커를 전환해 선택한다(LB-050). 선택된 탭은 굵은 테두리+배경색. -->
+            <LinearLayout
                 android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                app:cardBackgroundColor="@color/surface" app:cardCornerRadius="12dp"
-                app:cardElevation="2dp">
-                <LinearLayout
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:orientation="vertical" android:padding="16dp">
-
-                    <TextView
-                        android:id="@+id/labelSelectStart"
-                        android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="@string/label_select_start"
-                        android:textColor="@color/text_primary"
-                        android:textSize="14sp" android:textStyle="bold" />
-
-                    <!-- Start Date Row -->
+                android:layout_marginTop="16dp" android:orientation="horizontal">
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardStartDateSelection"
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:layout_marginStart="0dp"
+                    android:clickable="true" android:focusable="true"
+                    app:cardBackgroundColor="@color/surface" app:cardCornerRadius="12dp"
+                    app:cardElevation="0dp" app:strokeColor="@color/primary" app:strokeWidth="1dp">
                     <LinearLayout
                         android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp" android:gravity="center_vertical"
-                        android:orientation="horizontal">
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnPickStartDate"
-                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                            android:layout_width="wrap_content" android:layout_height="44dp"
-                            android:text="@string/btn_pick_date" android:textColor="@color/primary"
-                            app:cornerRadius="8dp" app:strokeColor="@color/primary" />
+                        android:orientation="vertical" android:padding="12dp">
+                        <TextView
+                            android:id="@+id/labelSelectStart"
+                            android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:text="@string/tab_off_period_start"
+                            android:textColor="@color/text_secondary" android:textSize="12sp"
+                            android:textStyle="bold" />
                         <TextView
                             android:id="@+id/textSelectedStartDate"
-                            android:layout_width="0dp" android:layout_height="wrap_content"
-                            android:layout_marginStart="16dp" android:layout_weight="1"
+                            android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
                             android:textColor="@color/text_primary" android:textSize="15sp"
-                            android:textStyle="bold" tools:text="2026-10-31" />
-                    </LinearLayout>
-
-                    <!-- Start Time Row -->
-                    <LinearLayout
-                        android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp" android:gravity="center_vertical"
-                        android:orientation="horizontal">
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnPickStartTime"
-                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                            android:layout_width="wrap_content" android:layout_height="44dp"
-                            android:text="@string/btn_pick_time" android:textColor="@color/primary"
-                            app:cornerRadius="8dp" app:strokeColor="@color/primary" />
+                            android:textStyle="bold" tools:text="2026-11-10" />
                         <TextView
                             android:id="@+id/textSelectedStartTime"
-                            android:layout_width="0dp" android:layout_height="wrap_content"
-                            android:layout_marginStart="16dp" android:layout_weight="1"
+                            android:layout_width="wrap_content" android:layout_height="wrap_content"
                             android:textColor="@color/text_primary" android:textSize="15sp"
                             android:textStyle="bold" tools:text="09:00" />
+                        <!-- 기존 id 보존용(구 날짜/시각 선택 버튼). 탭 UI 로 대체되어 숨김. -->
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnPickStartDate" android:visibility="gone"
+                            android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnPickStartTime" android:visibility="gone"
+                            android:layout_width="wrap_content" android:layout_height="wrap_content" />
                     </LinearLayout>
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+                </com.google.android.material.card.MaterialCardView>
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardEndDateSelection"
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:layout_marginStart="8dp"
+                    android:clickable="true" android:focusable="true"
+                    app:cardBackgroundColor="@color/surface" app:cardCornerRadius="12dp"
+                    app:cardElevation="0dp" app:strokeColor="@color/primary" app:strokeWidth="1dp">
+                    <LinearLayout
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:orientation="vertical" android:padding="12dp">
+                        <TextView
+                            android:id="@+id/labelSelectEnd"
+                            android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:text="@string/tab_off_period_end"
+                            android:textColor="@color/text_secondary" android:textSize="12sp"
+                            android:textStyle="bold" />
+                        <TextView
+                            android:id="@+id/textSelectedEndDate"
+                            android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:textColor="@color/text_primary" android:textSize="15sp"
+                            android:textStyle="bold" tools:text="2026-11-10" />
+                        <TextView
+                            android:id="@+id/textSelectedEndTime"
+                            android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:textColor="@color/text_primary" android:textSize="15sp"
+                            android:textStyle="bold" tools:text="09:00" />
+                        <!-- 기존 id 보존용(구 날짜/시각 선택 버튼). 탭 UI 로 대체되어 숨김. -->
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnPickEndDate" android:visibility="gone"
+                            android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnPickEndTime" android:visibility="gone"
+                            android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+            </LinearLayout>
 
-            <!-- End DateTime Selection Card -->
+            <!-- 공용 달력+시간 휠 피커(범위 달력 모드) -->
             <com.google.android.material.card.MaterialCardView
-                android:id="@+id/cardEndDateSelection"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 app:cardBackgroundColor="@color/surface" app:cardCornerRadius="12dp"
                 app:cardElevation="2dp">
-                <LinearLayout
+                <com.smartthings.cleaner.DateTimeWheelPicker
+                    android:id="@+id/offPeriodPicker"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:orientation="vertical" android:padding="16dp">
-
-                    <TextView
-                        android:id="@+id/labelSelectEnd"
-                        android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="@string/label_select_end"
-                        android:textColor="@color/text_primary"
-                        android:textSize="14sp" android:textStyle="bold" />
-
-                    <!-- End Date Row -->
-                    <LinearLayout
-                        android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp" android:gravity="center_vertical"
-                        android:orientation="horizontal">
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnPickEndDate"
-                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                            android:layout_width="wrap_content" android:layout_height="44dp"
-                            android:text="@string/btn_pick_date" android:textColor="@color/primary"
-                            app:cornerRadius="8dp" app:strokeColor="@color/primary" />
-                        <TextView
-                            android:id="@+id/textSelectedEndDate"
-                            android:layout_width="0dp" android:layout_height="wrap_content"
-                            android:layout_marginStart="16dp" android:layout_weight="1"
-                            android:textColor="@color/text_primary" android:textSize="15sp"
-                            android:textStyle="bold" tools:text="2026-11-02" />
-                    </LinearLayout>
-
-                    <!-- End Time Row -->
-                    <LinearLayout
-                        android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp" android:gravity="center_vertical"
-                        android:orientation="horizontal">
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnPickEndTime"
-                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                            android:layout_width="wrap_content" android:layout_height="44dp"
-                            android:text="@string/btn_pick_time" android:textColor="@color/primary"
-                            app:cornerRadius="8dp" app:strokeColor="@color/primary" />
-                        <TextView
-                            android:id="@+id/textSelectedEndTime"
-                            android:layout_width="0dp" android:layout_height="wrap_content"
-                            android:layout_marginStart="16dp" android:layout_weight="1"
-                            android:textColor="@color/text_primary" android:textSize="15sp"
-                            android:textStyle="bold" tools:text="18:00" />
-                    </LinearLayout>
-                </LinearLayout>
+                    android:padding="8dp" />
             </com.google.android.material.card.MaterialCardView>
 
             <!-- Preview Card -->
@@ -175,6 +149,13 @@
                         android:layout_marginTop="4dp"
                         android:textColor="@color/text_primary" android:textSize="14sp"
                         android:textStyle="bold" tools:text="2026-10-31 09:00 ~ 2026-11-02 18:00" />
+
+                    <TextView
+                        android:id="@+id/textDurationSummary"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:textColor="@color/primary" android:textSize="13sp"
+                        android:textStyle="bold" tools:text="기간: 4일 9시간" />
 
                     <TextView
                         android:id="@+id/textStartIsoPreview"

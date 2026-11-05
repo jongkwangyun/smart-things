@@ -236,12 +236,13 @@ class TestNotifications(unittest.TestCase):
         self.assertIn("fun sendTestNotification", client_text)
 
         # 5. MainActivity & Layout 계약 검증
-        main_file = ANDROID_ROOT / "app/src/main/java/com/smartthings/cleaner/MainActivity.kt"
+        # LB-047: 시험 알림 기능은 메인에서 설정 화면(SettingsActivity)으로 이동했다. 기능 존재 요구는 유지.
+        main_file = ANDROID_ROOT / "app/src/main/java/com/smartthings/cleaner/SettingsActivity.kt"
         main_text = main_file.read_text(encoding="utf-8")
         self.assertIn("btnSendTestNotification", main_text)
         self.assertIn("sendTestNotification", main_text)
 
-        layout_file = ANDROID_ROOT / "app/src/main/res/layout/activity_main.xml"
+        layout_file = ANDROID_ROOT / "app/src/main/res/layout/activity_settings.xml"
         layout_text = layout_file.read_text(encoding="utf-8")
         self.assertIn("btnSendTestNotification", layout_text)
 

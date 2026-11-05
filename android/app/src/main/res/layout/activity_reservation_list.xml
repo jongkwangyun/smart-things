@@ -58,14 +58,14 @@
                 <!-- Refresh Button -->
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnRefresh"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
                     android:layout_width="wrap_content"
-                    android:layout_height="40dp"
+                    android:layout_height="wrap_content"
+                    android:minWidth="48dp"
+                    android:minHeight="48dp"
                     android:text="@string/btn_refresh"
                     android:textColor="@color/primary"
-                    android:textSize="12sp"
-                    app:cornerRadius="6dp"
-                    app:strokeColor="@color/primary" />
+                    android:textSize="13sp" />
             </LinearLayout>
 
             <!-- Action: Add Reservation Button -->

@@ -67,7 +67,8 @@ class WaterManagementActivity : AppCompatActivity() {
         btnRefresh = findViewById(R.id.btnRefresh)
         btnChangeThreshold = findViewById(R.id.btnChangeThreshold)
 
-        btnRefillWater.setOnClickListener { performRefillWater() }
+        // LB-053: 확인 대화상자에서 확인한 경우에만 물 채움을 기록한다.
+        btnRefillWater.setOnClickListener { RefillConfirmDialog.show(this) { performRefillWater() } }
         btnRefresh.setOnClickListener { loadWaterTracker() }
         btnChangeThreshold.setOnClickListener { showChangeThresholdDialog() }
     }

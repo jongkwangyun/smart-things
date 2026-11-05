@@ -69,12 +69,18 @@ class TestAutoConnectAndPersistence(unittest.TestCase):
         self.assertIn("smartthings_cleaner_prefs", client_code)
 
     def test_main_activity_auto_connect_on_launch(self) -> None:
+        # LB-042 요구(앱 재실행 시 자동 연결)는 LB-047 이후 구조가 이동했다:
+        # MainActivity = 저장정보 라우팅(저장정보 있으면 HomeActivity) + 최초 연결 성공 시에만 저장,
+        # HomeActivity.loadHome = 진입 시 testConnection 자동 연결. checkConnectionOnLaunch()는 더 이상 없다.
         activity_code = (SRC_JAVA / "MainActivity.kt").read_text(encoding="utf-8")
-        self.assertIn("checkConnectionOnLaunch()", activity_code)
         self.assertIn("ServerClient.getSavedServerUrl", activity_code)
         self.assertIn("ServerClient.getSavedSharedSecret", activity_code)
+        self.assertIn("HomeActivity::class.java", activity_code)
         self.assertIn("performConnectionCheck()", activity_code)
         self.assertIn("ServerClient.saveCredentials", activity_code)
+        home_code = (SRC_JAVA / "HomeActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("loadHome()", home_code)
+        self.assertIn("serverClient.testConnection(", home_code)
 
     def test_simulated_auto_login_flow(self) -> None:
         """저장된 자격증명이 있을 때 앱 재실행 시 자동으로 연결을 시도하는 시뮬레이션."""

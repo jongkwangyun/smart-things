@@ -106,14 +106,14 @@
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnChangeThreshold"
-                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            style="@style/Widget.MaterialComponents.Button.TextButton"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:minWidth="48dp"
+                            android:minHeight="48dp"
                             android:text="@string/btn_change_threshold"
                             android:textColor="@color/primary"
-                            android:textSize="12sp"
-                            app:cornerRadius="6dp"
-                            app:strokeColor="@color/primary" />
+                            android:textSize="13sp" />
                     </LinearLayout>
 
                     <ProgressBar
@@ -146,13 +146,14 @@
             <!-- Refresh Button -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnRefresh"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="match_parent" android:layout_height="48dp"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
                 android:layout_marginTop="8dp"
+                android:minWidth="48dp" android:minHeight="48dp"
                 android:text="@string/btn_refresh"
                 android:textColor="@color/primary"
-                android:textSize="14sp" android:textStyle="bold"
-                app:cornerRadius="8dp" app:strokeColor="@color/primary" />
+                android:textSize="14sp" />
 
         </LinearLayout>
     </androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,7 +1,5 @@
 package com.smartthings.cleaner
 
-import android.app.DatePickerDialog
-import android.app.TimePickerDialog
 import android.os.Bundle
 import android.view.View
 import android.widget.ProgressBar
@@ -32,6 +30,7 @@ import java.util.Locale
  * - SPEC F-3: 1. "쉬는 기간" -> 시작·종료 일시 선택 -> 저장
  * - D-09 / REQ-024: 공유 비밀키 인증
  * - REQ-011: 시작 일시와 종료 일시 지정, 종료 > 시작 필수
+ * - LB-050: 시작/종료 탭으로 공용 피커(DateTimeWheelPicker 범위 달력 모드)를 전환, 종료 <= 시작이면 즉시 경고+저장 차단
  * - REQ-028 / REQ-029: S21+ 및 Fold8(접힘/펼침) 반응형 지원
  */
 class CreateOffPeriodActivity : AppCompatActivity() {
@@ -71,6 +70,12 @@ class CreateOffPeriodActivity : AppCompatActivity() {
     private var endDate: LocalDate = LocalDate.now(KST_ZONE).plusDays(3)
     private var endTime: LocalTime = LocalTime.of(18, 0)
 
+    private lateinit var picker: DateTimeWheelPicker
+    private lateinit var cardStartTab: MaterialCardView
+    private lateinit var cardEndTab: MaterialCardView
+    private lateinit var textDurationSummary: TextView
+    private var editingStart = true
+
     private lateinit var btnPickStartDate: MaterialButton
     private lateinit var textSelectedStartDate: TextView
     private lateinit var btnPickStartTime: MaterialButton
@@ -97,7 +102,7 @@ class CreateOffPeriodActivity : AppCompatActivity() {
 
         initViews()
         setDefaultDateTime()
-        updateDateTimePreview()
+        selectTab(isStart = true)
     }
 
     private fun initViews() {
@@ -126,10 +131,15 @@ class CreateOffPeriodActivity : AppCompatActivity() {
         progressBarSave = findViewById(R.id.progressBarSave)
         btnCancel = findViewById(R.id.btnCancel)
 
-        btnPickStartDate.setOnClickListener { showDatePicker(isStart = true) }
-        btnPickStartTime.setOnClickListener { showTimePicker(isStart = true) }
-        btnPickEndDate.setOnClickListener { showDatePicker(isStart = false) }
-        btnPickEndTime.setOnClickListener { showTimePicker(isStart = false) }
+        picker = findViewById(R.id.offPeriodPicker)
+        cardStartTab = findViewById(R.id.cardStartDateSelection)
+        cardEndTab = findViewById(R.id.cardEndDateSelection)
+        textDurationSummary = findViewById(R.id.textDurationSummary)
+        picker.rangeCalendarEnabled = true
+        // 선택값은 탭마다 유지된다: 피커 변경은 현재 탭의 값에만 반영되고, 탭 전환 시 그 탭의 값으로 피커를 되돌린다.
+        picker.onValueChanged = { z -> if (editingStart) setStartDateTime(z) else setEndDateTime(z) }
+        cardStartTab.setOnClickListener { selectTab(isStart = true) }
+        cardEndTab.setOnClickListener { selectTab(isStart = false) }
 
         btnSaveOffPeriod.setOnClickListener { performSaveOffPeriod() }
         btnCancel.setOnClickListener { finish() }
@@ -160,40 +170,11 @@ class CreateOffPeriodActivity : AppCompatActivity() {
         updateDateTimePreview()
     }
 
-    private fun showDatePicker(isStart: Boolean) {
-        val current = if (isStart) startDate else endDate
-        DatePickerDialog(
-            this,
-            { _, year, month, dayOfMonth ->
-                if (isStart) {
-                    startDate = LocalDate.of(year, month + 1, dayOfMonth)
-                } else {
-                    endDate = LocalDate.of(year, month + 1, dayOfMonth)
-                }
-                updateDateTimePreview()
-            },
-            current.year,
-            current.monthValue - 1,
-            current.dayOfMonth
-        ).show()
-    }
-
-    private fun showTimePicker(isStart: Boolean) {
-        val current = if (isStart) startTime else endTime
-        TimePickerDialog(
-            this,
-            { _, hourOfDay, minute ->
-                if (isStart) {
-                    startTime = LocalTime.of(hourOfDay, minute)
-                } else {
-                    endTime = LocalTime.of(hourOfDay, minute)
-                }
-                updateDateTimePreview()
-            },
-            current.hour,
-            current.minute,
-            true
-        ).show()
+    /** 시작/종료 탭 전환. 같은 피커에 해당 탭의 저장된 값을 채운다(리스너 호출 없음). */
+    private fun selectTab(isStart: Boolean) {
+        editingStart = isStart
+        picker.value = if (isStart) getStartDateTime() else getEndDateTime()
+        updateDateTimePreview()
     }
 
     fun updateDateTimePreview() {
@@ -208,6 +189,16 @@ class CreateOffPeriodActivity : AppCompatActivity() {
         textSelectedRangePreview.text = "${startZdt.format(DISPLAY_FORMATTER)} ~ ${endZdt.format(DISPLAY_FORMATTER)}"
         textStartIsoPreview.text = "시작 ISO: ${formatIsoKst(startZdt)}"
         textEndIsoPreview.text = "종료 ISO: ${formatIsoKst(endZdt)}"
+
+        picker.setRange(startZdt, endZdt)
+        textDurationSummary.text = getString(R.string.label_off_period_duration, RangeCalendarLogic.durationText(startZdt, endZdt))
+        textDurationSummary.visibility = if (RangeCalendarLogic.isValidRange(startZdt, endZdt)) View.VISIBLE else View.GONE
+        for ((card, active) in listOf(cardStartTab to editingStart, cardEndTab to !editingStart)) {
+            card.strokeWidth = if (active) 6 else 2
+            card.strokeColor = getColor(if (active) R.color.primary else R.color.badge_border_cancelled)
+            card.setCardBackgroundColor(getColor(if (active) R.color.status_scheduled_bg else R.color.surface))
+        }
+        refreshSaveEnabled(isSaving = false)
 
         val validity = checkDateTimeValidity(startZdt, endZdt)
         if (validity is ValidationState.InvalidRange) {
@@ -271,13 +262,23 @@ class CreateOffPeriodActivity : AppCompatActivity() {
     }
 
     private fun setSaving(isSaving: Boolean) {
-        btnSaveOffPeriod.isEnabled = !isSaving
+        refreshSaveEnabled(isSaving)
         btnSaveOffPeriod.text = if (isSaving) getString(R.string.btn_saving_off_period) else getString(R.string.btn_save_off_period)
         progressBarSave.visibility = if (isSaving) View.VISIBLE else View.GONE
         btnPickStartDate.isEnabled = !isSaving
         btnPickStartTime.isEnabled = !isSaving
         btnPickEndDate.isEnabled = !isSaving
         btnPickEndTime.isEnabled = !isSaving
+        cardStartTab.isEnabled = !isSaving
+        cardEndTab.isEnabled = !isSaving
+        picker.isEnabled = !isSaving
+    }
+
+    /** 종료 > 시작일 때만 저장 가능. 저장 중에도 차단. */
+    private fun refreshSaveEnabled(isSaving: Boolean) {
+        val ok = !isSaving && RangeCalendarLogic.isValidRange(getStartDateTime(), getEndDateTime())
+        btnSaveOffPeriod.isEnabled = ok
+        btnSaveOffPeriod.alpha = if (ok || isSaving) 1f else 0.4f
     }
 
     private fun showConfirmationDialog(message: String) {

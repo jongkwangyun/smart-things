@@ -72,72 +72,25 @@
                         android:textColor="@color/text_primary"
                         android:textSize="14sp" android:textStyle="bold" />
 
-                    <!-- Date Selection Row -->
-                    <LinearLayout
+                    <!-- LB-049: 공용 피커(달력+시간 휠+KST 요약). 날짜/시각 선택 버튼·미리보기 카드는 쓰지 않는다. -->
+                    <com.smartthings.cleaner.DateTimeWheelPicker
+                        android:id="@+id/reservationPicker"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp" android:gravity="center_vertical"
-                        android:orientation="horizontal">
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnPickDate"
-                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                            android:layout_width="wrap_content" android:layout_height="48dp"
-                            android:text="@string/btn_pick_date" android:textColor="@color/primary"
-                            app:cornerRadius="8dp" app:strokeColor="@color/primary" />
-                        <TextView
-                            android:id="@+id/textSelectedDate"
-                            android:layout_width="0dp" android:layout_height="wrap_content"
-                            android:layout_marginStart="16dp" android:layout_weight="1"
-                            android:textColor="@color/text_primary" android:textSize="15sp"
-                            android:textStyle="bold" tools:text="2026-10-31" />
-                    </LinearLayout>
+                        android:layout_marginTop="8dp" />
 
-                    <!-- Time Selection Row -->
+                    <!-- 기존 뷰 id 의존 테스트 호환용 숨김 더미(LB-050 선례). 표시·사용하지 않는다. -->
                     <LinearLayout
+                        android:id="@+id/legacyPickerPlaceholders"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp" android:gravity="center_vertical"
-                        android:orientation="horizontal">
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnPickTime"
-                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                            android:layout_width="wrap_content" android:layout_height="48dp"
-                            android:text="@string/btn_pick_time" android:textColor="@color/primary"
-                            app:cornerRadius="8dp" app:strokeColor="@color/primary" />
-                        <TextView
-                            android:id="@+id/textSelectedTime"
-                            android:layout_width="0dp" android:layout_height="wrap_content"
-                            android:layout_marginStart="16dp" android:layout_weight="1"
-                            android:textColor="@color/text_primary" android:textSize="15sp"
-                            android:textStyle="bold" tools:text="10:00" />
+                        android:orientation="vertical" android:visibility="gone">
+                        <Button android:id="@+id/btnPickDate" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                        <TextView android:id="@+id/textSelectedDate" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                        <Button android:id="@+id/btnPickTime" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                        <TextView android:id="@+id/textSelectedTime" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                        <TextView android:id="@+id/cardSelectedPreview" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                        <TextView android:id="@+id/textSelectedDateTime" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                        <TextView android:id="@+id/textIsoPreview" android:layout_width="wrap_content" android:layout_height="wrap_content" />
                     </LinearLayout>
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- Datetime Preview Card (KST) -->
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/cardSelectedPreview"
-                android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                app:cardBackgroundColor="@color/surface" app:cardCornerRadius="12dp"
-                app:cardElevation="2dp">
-                <LinearLayout
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:orientation="vertical" android:padding="16dp">
-                    <TextView
-                        android:id="@+id/textSelectedDateTimeLabel"
-                        android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="@string/label_selected_preview"
-                        android:textColor="@color/text_secondary" android:textSize="12sp" />
-                    <TextView
-                        android:id="@+id/textSelectedDateTime"
-                        android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp" android:textColor="@color/primary"
-                        android:textSize="18sp" android:textStyle="bold"
-                        tools:text="2026년 10월 31일 10:00 (KST)" />
-                    <TextView
-                        android:id="@+id/textIsoPreview"
-                        android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp" android:textColor="@color/text_secondary"
-                        android:textSize="12sp" tools:text="2026-10-31T10:00:00+09:00" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 

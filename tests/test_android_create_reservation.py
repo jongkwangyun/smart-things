@@ -160,8 +160,11 @@ class TestAndroidCreateReservationLayoutAndResources(unittest.TestCase):
                 self.assertNotIn(forbidden, view_id, f"D-03 위반: 모드/구역 관련 뷰 ID 감지 '{view_id}'")
 
     def test_main_activity_has_create_reservation_button(self) -> None:
-        """activity_main.xml에 '예약 추가' 버튼(btnCreateReservation) 존재 확인 (SPEC F-1)."""
-        tree = ET.parse(RES_LAYOUT / "activity_main.xml")
+        """'예약 추가' 버튼(btnCreateReservation) 존재 확인 (SPEC F-1).
+
+        LB-047로 메인은 연결 전용이 되어 버튼이 activity_home.xml(주 버튼)로 이동했다.
+        """
+        tree = ET.parse(RES_LAYOUT / "activity_home.xml")
         ns = "http://schemas.android.com/apk/res/android"
         ids = {e.attrib.get(f"{{{ns}}}id", "").split("/")[-1] for e in tree.iter()}
         self.assertIn("btnCreateReservation", ids)

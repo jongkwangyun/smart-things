@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background"
+    android:fillViewport="true">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:padding="20dp">
+
+        <LinearLayout
+            android:layout_width="0dp" android:layout_height="wrap_content"
+            android:orientation="vertical"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintWidth_max="640dp">
+
+        <!-- 제목 + 설정 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+            <TextView
+                android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/app_name"
+                android:textColor="@color/primary"
+                android:textSize="22sp" android:textStyle="bold" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnSettings"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="@string/btn_settings"
+                android:textColor="@color/primary" />
+        </LinearLayout>
+
+        <!-- 연결 상태 한 줄 -->
+        <TextView
+            android:id="@+id/textConnectionLine"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:maxLines="2"
+            android:textColor="@color/status_connecting"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            tools:text="● 연결됨 · http://10.0.2.2:18765" />
+
+        <!-- 서버 연결 불가 경고 (LB-029, REQ-025). UNREACHABLE일 때만 표시 -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardServerWarning"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:visibility="gone"
+            app:cardBackgroundColor="@color/status_error_bg"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="0dp"
+            app:strokeColor="@color/status_error"
+            app:strokeWidth="1.5dp"
+            tools:visibility="visible">
+            <LinearLayout
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:padding="16dp">
+                <TextView
+                    android:id="@+id/textServerWarningTitle"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="@string/server_unreachable_warning"
+                    android:textColor="@color/status_error"
+                    android:textSize="16sp" android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/textServerWarningMessage"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/error_unreachable"
+                    android:textColor="@color/text_primary"
+                    android:textSize="13sp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 다음 예약 카드 -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            app:cardBackgroundColor="@color/surface"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp">
+            <LinearLayout
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:padding="20dp">
+                <TextView
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="@string/label_next_reservation"
+                    android:textColor="@color/text_secondary" android:textSize="12sp" />
+                <TextView
+                    android:id="@+id/textNextReservation"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="@string/home_loading"
+                    android:textColor="@color/text_primary"
+                    android:textSize="20sp" android:textStyle="bold"
+                    tools:text="2026년 11월 06일 09:00 (KST)" />
+                <TextView
+                    android:id="@+id/textReservationCounts"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:textColor="@color/text_secondary" android:textSize="13sp"
+                    tools:text="예정 2건 · 지난 4건" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnCreateReservation"
+                    android:layout_width="match_parent" android:layout_height="52dp"
+                    android:layout_marginTop="16dp"
+                    android:backgroundTint="@color/primary"
+                    android:text="@string/btn_add_reservation"
+                    android:textColor="@color/on_primary"
+                    android:textSize="16sp" android:textStyle="bold"
+                    app:cornerRadius="8dp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 타일: 예약 목록 -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/tileReservationList"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:clickable="true" android:focusable="true"
+            app:cardBackgroundColor="@color/surface"
+            app:cardCornerRadius="12dp" app:cardElevation="1dp">
+            <LinearLayout
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:padding="16dp">
+                <TextView
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="@string/btn_reservation_list"
+                    android:textColor="@color/text_primary" android:textSize="16sp" android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/textTileReservations"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:textColor="@color/text_secondary" android:textSize="13sp"
+                    tools:text="예정 2건 · 지난 4건" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 타일: 쉬는 기간 -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/tileOffPeriod"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:clickable="true" android:focusable="true"
+            app:cardBackgroundColor="@color/surface"
+            app:cardCornerRadius="12dp" app:cardElevation="1dp">
+            <LinearLayout
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:padding="16dp">
+                <TextView
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="@string/tile_off_period"
+                    android:textColor="@color/text_primary" android:textSize="16sp" android:textStyle="bold" />
+                <TextView
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="@string/tile_off_period_desc"
+                    android:textColor="@color/text_secondary" android:textSize="13sp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 타일: 물 관리 -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/tileWater"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:clickable="true" android:focusable="true"
+            app:cardBackgroundColor="@color/surface"
+            app:cardCornerRadius="12dp" app:cardElevation="1dp">
+            <LinearLayout
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:padding="16dp">
+                <TextView
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="@string/btn_water_management"
+                    android:textColor="@color/text_primary" android:textSize="16sp" android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/textTileWater"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:textColor="@color/text_secondary" android:textSize="13sp"
+                    tools:text="물 채운 뒤 청소 3 / 기준 7회" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnRefillWater"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="match_parent" android:layout_height="44dp"
+                    android:layout_marginTop="10dp"
+                    android:text="@string/btn_refill_water"
+                    android:textColor="@color/primary"
+                    app:cornerRadius="8dp" app:strokeColor="@color/primary" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</ScrollView>

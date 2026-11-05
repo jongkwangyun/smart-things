@@ -40,7 +40,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:text="@string/subtitle_server_settings"
+                android:text="@string/subtitle_connect_first"
                 android:textColor="@color/text_secondary"
                 android:textSize="13sp" />
 
@@ -81,39 +81,35 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Connection Status Card -->
+            <!-- Connection Status Card (연결 실패 오류 표시) -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardConnectionStatus"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="20dp"
+                android:visibility="gone"
                 app:cardBackgroundColor="@color/status_disconnected_bg"
                 app:cardCornerRadius="12dp"
                 app:cardElevation="0dp"
                 app:strokeColor="@color/border_color"
-                app:strokeWidth="1dp">
+                app:strokeWidth="1dp"
+                tools:visibility="visible">
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:padding="16dp">
                     <TextView
-                        android:id="@+id/textStatusLabel"
-                        android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="@string/status_label"
-                        android:textColor="@color/text_secondary" android:textSize="12sp" />
-                    <TextView
                         android:id="@+id/textConnectionStatus"
                         android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
                         android:text="@string/status_disconnected"
                         android:textColor="@color/status_disconnected"
-                        android:textSize="20sp" android:textStyle="bold" />
+                        android:textSize="18sp" android:textStyle="bold" />
                     <TextView
                         android:id="@+id/textStatusDetail"
                         android:layout_width="wrap_content" android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
-                        android:textColor="@color/text_secondary" android:textSize="12sp"
+                        android:textColor="@color/text_secondary" android:textSize="13sp"
                         android:visibility="gone" tools:text="서버 연결 대기 중" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -191,103 +187,6 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Connected Server Information Card -->
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/cardServerInfo"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:visibility="gone"
-                app:cardBackgroundColor="@color/surface"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="2dp"
-                tools:visibility="visible">
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
-                    <TextView
-                        android:id="@+id/textServerInfoHeader"
-                        android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="@string/server_info_title"
-                        android:textColor="@color/text_primary"
-                        android:textSize="14sp" android:textStyle="bold" />
-                    <TextView
-                        android:id="@+id/textServiceName"
-                        android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="13sp" tools:text="서비스: smart-things-mini-pc" />
-                    <TextView
-                        android:id="@+id/textServerTime"
-                        android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="13sp" tools:text="서버 시각(KST): 2026-10-30 12:00:00" />
-                    <TextView
-                        android:id="@+id/textReservationCount"
-                        android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="13sp" tools:text="등록된 예약 수: 0건" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnCreateReservation"
-                        android:layout_width="match_parent" android:layout_height="48dp"
-                        android:layout_marginTop="12dp"
-                        android:backgroundTint="@color/primary"
-                        android:text="@string/btn_add_reservation"
-                        android:textColor="@color/on_primary"
-                        android:textSize="14sp" android:textStyle="bold"
-                        app:cornerRadius="8dp" />
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnReservationList"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                        android:layout_width="match_parent" android:layout_height="48dp"
-                        android:layout_marginTop="8dp"
-                        android:text="@string/btn_reservation_list"
-                        android:textColor="@color/primary"
-                        android:textSize="14sp" android:textStyle="bold"
-                        app:cornerRadius="8dp" app:strokeColor="@color/primary" />
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnCreateOffPeriod"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                        android:layout_width="match_parent" android:layout_height="48dp"
-                        android:layout_marginTop="8dp"
-                        android:text="@string/btn_create_off_period"
-                        android:textColor="@color/primary"
-                        android:textSize="14sp" android:textStyle="bold"
-                        app:cornerRadius="8dp" app:strokeColor="@color/primary" />
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnOffPeriodList"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                        android:layout_width="match_parent" android:layout_height="48dp"
-                        android:layout_marginTop="8dp"
-                        android:text="@string/btn_off_period_list"
-                        android:textColor="@color/primary"
-                        android:textSize="14sp" android:textStyle="bold"
-                        app:cornerRadius="8dp" app:strokeColor="@color/primary" />
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnWaterManagement"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                        android:layout_width="match_parent" android:layout_height="48dp"
-                        android:layout_marginTop="8dp"
-                        android:text="@string/btn_water_management"
-                        android:textColor="@color/primary"
-                        android:textSize="14sp" android:textStyle="bold"
-                        app:cornerRadius="8dp" app:strokeColor="@color/primary" />
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnSendTestNotification"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                        android:layout_width="match_parent" android:layout_height="48dp"
-                        android:layout_marginTop="8dp"
-                        android:text="@string/btn_send_test_notification"
-                        android:textColor="@color/primary"
-                        android:textSize="14sp" android:textStyle="bold"
-                        app:cornerRadius="8dp" app:strokeColor="@color/primary" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
     </androidx.constraintlayout.widget.ConstraintLayout>
 </ScrollView>

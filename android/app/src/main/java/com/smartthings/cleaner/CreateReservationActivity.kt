@@ -1,7 +1,6 @@
 package com.smartthings.cleaner
 
-import android.app.DatePickerDialog
-import android.app.TimePickerDialog
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.widget.ProgressBar
@@ -16,10 +15,9 @@ import com.smartthings.cleaner.network.ServerClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.time.LocalDate
-import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import java.time.temporal.ChronoUnit
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -34,10 +32,16 @@ import java.util.Locale
  * - D-09 / REQ-024: 공유 비밀키 인증
  * - REQ-001: 분 단위 미래 일시 KST 지정
  * - REQ-028 / REQ-029: S21+ 및 Fold8(접힘/펼침) 반응형 지원
+ * - LB-049: 일시는 공용 피커(DateTimeWheelPicker: 달력+시간 휠)로 선택한다. 날짜/시각 선택 버튼·미리보기 카드 없음.
+ *   예약 수정(ReservationListActivity)도 EXTRA_PICK_ONLY 모드로 이 화면을 재사용한다: 서버 호출 없이
+ *   선택한 KST ISO 일시를 RESULT_SCHEDULED_AT 로 돌려주고, 쉬는 기간 경고·수정 호출은 호출한 목록 화면이 기존대로 수행한다.
  */
 class CreateReservationActivity : AppCompatActivity() {
 
     companion object {
+        const val EXTRA_PICK_ONLY = "EXTRA_PICK_ONLY"
+        const val EXTRA_SCHEDULED_AT = "EXTRA_SCHEDULED_AT"
+        const val RESULT_SCHEDULED_AT = "RESULT_SCHEDULED_AT"
         val KST_ZONE: ZoneId = ZoneId.of("Asia/Seoul")
         val DISPLAY_FORMATTER: DateTimeFormatter =
             DateTimeFormatter.ofPattern("yyyy년 MM월 dd일 HH:mm ('KST')", Locale.KOREAN)
@@ -72,16 +76,8 @@ class CreateReservationActivity : AppCompatActivity() {
 
     private val serverClient = ServerClient()
 
-    private var selectedDate: LocalDate = LocalDate.now(KST_ZONE).plusDays(1)
-    private var selectedTime: LocalTime = LocalTime.of(10, 0)
-
-    private lateinit var btnPickDate: MaterialButton
-    private lateinit var textSelectedDate: TextView
-    private lateinit var btnPickTime: MaterialButton
-    private lateinit var textSelectedTime: TextView
-
-    private lateinit var textSelectedDateTime: TextView
-    private lateinit var textIsoPreview: TextView
+    private lateinit var picker: DateTimeWheelPicker
+    private var pickOnly = false
 
     private lateinit var cardValidationWarning: MaterialCardView
     private lateinit var textValidationMessage: TextView
@@ -101,16 +97,16 @@ class CreateReservationActivity : AppCompatActivity() {
         initViews()
         setDefaultDateTime()
         updateDateTimePreview()
+        if (pickOnly) {
+            findViewById<TextView>(R.id.textTitle).text = getString(R.string.title_edit_reservation)
+            btnSaveReservation.text = getString(R.string.btn_save_edit_reservation)
+        }
     }
 
     private fun initViews() {
-        btnPickDate = findViewById(R.id.btnPickDate)
-        textSelectedDate = findViewById(R.id.textSelectedDate)
-        btnPickTime = findViewById(R.id.btnPickTime)
-        textSelectedTime = findViewById(R.id.textSelectedTime)
-
-        textSelectedDateTime = findViewById(R.id.textSelectedDateTime)
-        textIsoPreview = findViewById(R.id.textIsoPreview)
+        picker = findViewById(R.id.reservationPicker)
+        picker.onValueChanged = { updateDateTimePreview() }
+        pickOnly = intent.getBooleanExtra(EXTRA_PICK_ONLY, false)
 
         cardValidationWarning = findViewById(R.id.cardValidationWarning)
         textValidationMessage = findViewById(R.id.textValidationMessage)
@@ -123,45 +119,29 @@ class CreateReservationActivity : AppCompatActivity() {
         progressBarSave = findViewById(R.id.progressBarSave)
         btnCancel = findViewById(R.id.btnCancel)
 
-        btnPickDate.setOnClickListener { showDatePicker() }
-        btnPickTime.setOnClickListener { showTimePicker() }
         btnSaveReservation.setOnClickListener { performSaveReservation() }
         btnCancel.setOnClickListener { finish() }
     }
 
     private fun setDefaultDateTime() {
+        // 기존 규칙: 선택 일시는 현재보다 뒤여야 한다(checkDateTimeValidity). 피커 최소값 = 다음 분.
         val nowKst = ZonedDateTime.now(KST_ZONE)
-        selectedDate = nowKst.toLocalDate().plusDays(1)
-        selectedTime = LocalTime.of(10, 0)
+        picker.minDateTime = nowKst.truncatedTo(ChronoUnit.MINUTES).plusMinutes(1)
+        val initial = intent.getStringExtra(EXTRA_SCHEDULED_AT)?.let {
+            try { ZonedDateTime.parse(it).withZoneSameInstant(KST_ZONE) } catch (_: Exception) { null }
+        }
+        picker.value = initial ?: nowKst.toLocalDate().plusDays(1).atTime(10, 0).atZone(KST_ZONE)
     }
 
-    fun getSelectedZonedDateTime(): ZonedDateTime {
-        return ZonedDateTime.of(selectedDate, selectedTime, KST_ZONE)
-    }
+    fun getSelectedZonedDateTime(): ZonedDateTime = picker.value
 
     fun setSelectedDateTime(dateTime: ZonedDateTime) {
-        val kst = dateTime.withZoneSameInstant(KST_ZONE)
-        selectedDate = kst.toLocalDate()
-        selectedTime = LocalTime.of(kst.hour, kst.minute)
+        picker.value = dateTime.withZoneSameInstant(KST_ZONE)
         updateDateTimePreview()
-    }
-
-    private fun showDatePicker() {
-        DatePickerDialog(this, { _, y, m, d -> selectedDate = LocalDate.of(y, m + 1, d); updateDateTimePreview() },
-            selectedDate.year, selectedDate.monthValue - 1, selectedDate.dayOfMonth).show()
-    }
-
-    private fun showTimePicker() {
-        TimePickerDialog(this, { _, h, m -> selectedTime = LocalTime.of(h, m); updateDateTimePreview() },
-            selectedTime.hour, selectedTime.minute, true).show()
     }
 
     fun updateDateTimePreview() {
         val zdt = getSelectedZonedDateTime()
-        textSelectedDate.text = String.format(Locale.KOREAN, "%04d-%02d-%02d", zdt.year, zdt.monthValue, zdt.dayOfMonth)
-        textSelectedTime.text = String.format(Locale.KOREAN, "%02d:%02d", zdt.hour, zdt.minute)
-        textSelectedDateTime.text = zdt.format(DISPLAY_FORMATTER)
-        textIsoPreview.text = formatIsoKst(zdt)
 
         val validity = checkDateTimeValidity(zdt)
         if (validity is ValidationState.Past) {
@@ -181,6 +161,12 @@ class CreateReservationActivity : AppCompatActivity() {
             cardValidationWarning.visibility = View.VISIBLE
             textValidationMessage.text = getString(R.string.msg_error_past_datetime)
             cardConfirmation.visibility = View.GONE
+            return
+        }
+
+        if (pickOnly) {
+            setResult(RESULT_OK, Intent().putExtra(RESULT_SCHEDULED_AT, formatIsoKst(zdt)))
+            finish()
             return
         }
 
@@ -264,8 +250,7 @@ class CreateReservationActivity : AppCompatActivity() {
             getString(R.string.btn_save_reservation)
         }
         progressBarSave.visibility = if (isSaving) View.VISIBLE else View.GONE
-        btnPickDate.isEnabled = !isSaving
-        btnPickTime.isEnabled = !isSaving
+        picker.isEnabled = !isSaving
     }
 
     private fun showConfirmationDialog(message: String) {

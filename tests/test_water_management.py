@@ -186,9 +186,10 @@ class TestWaterManagement(unittest.TestCase):
         self.assertIn("WaterManagementActivity", manifest_xml)
 
         # 메인 액티비티 이동 버튼 확인
-        main_activity_kt = (SRC_JAVA / "MainActivity.kt").read_text(encoding="utf-8")
-        self.assertIn("WaterManagementActivity", main_activity_kt)
-        self.assertIn("btnWaterManagement", main_activity_kt)
+        # LB-047: 진입점이 MainActivity의 btnWaterManagement에서 홈의 tileWater 타일(HomeActivity)로 이동했다.
+        main_activity_kt = (SRC_JAVA / "HomeActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("WaterManagementActivity::class.java", main_activity_kt)
+        self.assertIn("R.id.tileWater", main_activity_kt)
 
     def test_conditional_requirement_documented(self) -> None:
         """Must: REQ-018 불가능 시 조건부 요구(REQ-019, D-06, D-14) 적용 확인."""

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background"
+    android:fillViewport="true">
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:padding="20dp">
+
+        <LinearLayout
+            android:layout_width="0dp" android:layout_height="wrap_content"
+            android:orientation="vertical"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintWidth_max="640dp">
+        <TextView
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="@string/title_settings"
+            android:textColor="@color/primary" android:textSize="22sp" android:textStyle="bold" />
+        <TextView
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/label_server_url"
+            android:textColor="@color/text_secondary" android:textSize="12sp" />
+        <TextView
+            android:id="@+id/textCurrentServer"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textColor="@color/text_primary" android:textSize="15sp" />
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnChangeServer"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent" android:layout_height="48dp"
+            android:layout_marginTop="12dp"
+            android:text="@string/btn_change_server"
+            android:textColor="@color/primary" app:cornerRadius="8dp" app:strokeColor="@color/primary" />
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSendTestNotification"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent" android:layout_height="48dp"
+            android:layout_marginTop="8dp"
+            android:text="@string/btn_send_test_notification"
+            android:textColor="@color/primary" app:cornerRadius="8dp" app:strokeColor="@color/primary" />
+        <TextView
+            android:id="@+id/textSettingsMessage"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:textColor="@color/text_secondary" android:textSize="13sp"
+            android:visibility="gone" />
+        </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</ScrollView>

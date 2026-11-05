@@ -109,9 +109,14 @@ class TestAndroidManifestAndLayout(unittest.TestCase):
             "textConnectionStatus",
             "cardConnectionStatus",
             "textStatusDetail",
-            "cardServerInfo",
         ):
             self.assertIn(req_id, element_ids, f"activity_main.xml에 ID '{req_id}' 누락")
+        # LB-047: 연결 성공 표시(구 cardServerInfo)는 홈의 연결 상태 한 줄(textConnectionLine)로 이동했다.
+        home_ids = {
+            e.attrib.get("{http://schemas.android.com/apk/res/android}id", "").split("/")[-1]
+            for e in ET.parse(ANDROID_ROOT / "app/src/main/res/layout/activity_home.xml").iter()
+        }
+        self.assertIn("textConnectionLine", home_ids)
 
     def test_strings_connected_value(self) -> None:
         strings_path = ANDROID_ROOT / "app/src/main/res/values/strings.xml"
@@ -137,7 +142,10 @@ class TestKotlinSourceContracts(unittest.TestCase):
         )
 
         activity_kt = (base / "MainActivity.kt").read_text(encoding="utf-8")
-        self.assertTrue(all(k in activity_kt for k in ("MainActivity", "performConnectionCheck", "status_connected")))
+        self.assertTrue(all(k in activity_kt for k in ("MainActivity", "performConnectionCheck")))
+        # LB-047: 연결 성공 색(status_connected)은 홈의 연결 상태 줄이 사용한다.
+        home_kt = (base / "HomeActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("status_connected", home_kt)
 
 
 class TestClientServerProtocolIntegration(unittest.TestCase):

@@ -224,12 +224,13 @@ class TestAndroidReservationList(unittest.TestCase):
             f"item_reservation 누락 ID: {required_item_ids - item_ids}"
         )
 
-        main_tree = ET.parse(RES_LAYOUT / "activity_main.xml")
+        # LB-047: 예약 목록 진입점이 btnReservationList(메인)에서 홈의 tileReservationList 타일로 이동했다.
+        main_tree = ET.parse(RES_LAYOUT / "activity_home.xml")
         main_ids = {
             elem.attrib.get("{http://schemas.android.com/apk/res/android}id", "").split("/")[-1]
             for elem in main_tree.iter()
         }
-        self.assertIn("btnReservationList", main_ids)
+        self.assertIn("tileReservationList", main_ids)
 
 
 if __name__ == "__main__":

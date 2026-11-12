@@ -14,7 +14,8 @@ import java.net.URL
  */
 class ServerClient(
     private val connectTimeoutMs: Int = 5000,
-    private val readTimeoutMs: Int = 5000
+    private val readTimeoutMs: Int = 5000,
+    private val tailscaleDiagnoser: TailscaleDiagnoser = TailscaleDiagnoser()
 ) {
     companion object {
         private const val PREFS_NAME = "smartthings_cleaner_prefs"
@@ -38,12 +39,9 @@ class ServerClient(
     private fun sendJson(endpoint: String, secret: String, method: String, payload: JSONObject): Pair<Int, String> {
         var conn: HttpURLConnection? = null
         return try {
-            conn = openAuthConnection(endpoint, secret, method).apply {
-                doOutput = true; setRequestProperty("Content-Type", "application/json; charset=UTF-8")
-            }
+            conn = openAuthConnection(endpoint, secret, method).apply { doOutput = true; setRequestProperty("Content-Type", "application/json; charset=UTF-8") }
             OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { it.write(payload.toString()) }
-            val code = conn.responseCode
-            val stream = if (code in 200..299) conn.inputStream else (conn.errorStream ?: conn.inputStream)
+            val code = conn.responseCode; val stream = if (code in 200..299) conn.inputStream else (conn.errorStream ?: conn.inputStream)
             Pair(code, if (stream != null) readStream(stream) else "")
         } finally { conn?.disconnect() }
     }
@@ -69,20 +67,19 @@ class ServerClient(
     private fun ioErrMsg(e: Exception, contextMsg: String): String =
         if (e is IOException) "서버에 연결할 수 없습니다: ${e.message}" else "$contextMsg: ${e.message}"
 
-    /** 서버 연결 상태를 검증한다 (REQ-024, REQ-025). */
-    fun testConnection(serverUrl: String, sharedSecret: String): ConnectionState {
+    /** 서버 연결 상태를 검증한다 (REQ-024, REQ-025, LB-056). */
+    fun testConnection(serverUrl: String, sharedSecret: String, context: Context? = null): ConnectionState {
         val cleanUrl = normalizeUrl(serverUrl); val cleanSecret = sharedSecret.trim()
         if (cleanUrl.isEmpty()) return ConnectionState.Failed(ConnectionError.EMPTY_URL, "서버 주소를 입력해 주세요.")
         if (cleanSecret.isEmpty()) return ConnectionState.Failed(ConnectionError.EMPTY_SECRET, "공유 비밀키를 입력해 주세요.")
         if (!cleanUrl.startsWith("http://") && !cleanUrl.startsWith("https://")) return ConnectionState.Failed(ConnectionError.INVALID_URL, "URL은 http:// 또는 https://로 시작해야 합니다.")
         val healthResult = checkHealth(cleanUrl)
-        if (healthResult is HealthCheckResult.Failure) return ConnectionState.Failed(ConnectionError.UNREACHABLE, healthResult.message)
+        if (healthResult is HealthCheckResult.Failure) return tailscaleDiagnoser.diagnose(cleanUrl, ConnectionState.Failed(ConnectionError.UNREACHABLE, healthResult.message), context)
         val health = healthResult as HealthCheckResult.Success
-
         return when (val authResult = checkAuth(cleanUrl, cleanSecret)) {
             is AuthCheckResult.Success -> ConnectionState.Connected(cleanUrl, health.serviceName, health.serverTimeKst, authResult.reservationCount)
             is AuthCheckResult.Unauthorized -> ConnectionState.Failed(ConnectionError.UNAUTHORIZED, ERR_AUTH)
-            is AuthCheckResult.Failure -> ConnectionState.Failed(ConnectionError.UNREACHABLE, authResult.message)
+            is AuthCheckResult.Failure -> tailscaleDiagnoser.diagnose(cleanUrl, ConnectionState.Failed(ConnectionError.UNREACHABLE, authResult.message), context)
         }
     }
 
@@ -100,16 +97,18 @@ class ServerClient(
             is FetchReservationsResult.Failure -> if (result.statusCode == 401) AuthCheckResult.Unauthorized else AuthCheckResult.Failure(result.message)
         }
 
-    /** 1회성 청소 예약을 서버에 등록한다 (POST /api/reservations, REQ-001, D-03). */
-    fun createReservation(serverUrl: String, sharedSecret: String, scheduledAtIso: String, allowDuringOffPeriod: Boolean = false): CreateReservationResult {
+    /** 1회성 청소 예약을 서버에 등록한다 (POST /api/reservations, REQ-001, D-03, LB-058). */
+    fun createReservation(serverUrl: String, sharedSecret: String, scheduledAtIso: String, allowDuringOffPeriod: Boolean = false, cleaningType: String = ReservationItem.CLEANING_TYPE_DEFAULT): CreateReservationResult {
         val cleanUrl = normalizeUrl(serverUrl); val cleanSecret = sharedSecret.trim(); val cleanScheduledAt = scheduledAtIso.trim()
         if (cleanUrl.isEmpty() || cleanSecret.isEmpty()) return CreateReservationResult.Failure(400, "서버 주소와 공유 비밀키가 필요합니다.")
         if (cleanScheduledAt.isEmpty()) return CreateReservationResult.Failure(400, "예약 일시가 지정되지 않았습니다.")
         return try {
-            val payload = JSONObject().put("scheduled_at", cleanScheduledAt).put("allow_during_off_period", allowDuringOffPeriod)
+            val payload = JSONObject().put("scheduled_at", cleanScheduledAt).put("allow_during_off_period", allowDuringOffPeriod).put("cleaning_type", cleaningType)
             val (code, body) = postJson("$cleanUrl/api/reservations", cleanSecret, payload)
             when (code) {
-                HttpURLConnection.HTTP_CREATED, HttpURLConnection.HTTP_OK -> JSONObject(body).let { CreateReservationResult.Success(it.optString("id", ""), it.optString("scheduled_at", it.optString("reserved_at", cleanScheduledAt)), it.optString("status", "예정")) }
+                HttpURLConnection.HTTP_CREATED, HttpURLConnection.HTTP_OK -> JSONObject(body).let {
+                    CreateReservationResult.Success(it.optString("id", ""), it.optString("scheduled_at", it.optString("reserved_at", cleanScheduledAt)), it.optString("status", "예정"), cleaningType = it.optString("cleaning_type", cleaningType))
+                }
                 HttpURLConnection.HTTP_BAD_REQUEST -> CreateReservationResult.Failure(400, extractErrorMsg(body, "과거 시각 또는 잘못된 형식입니다: HTTP 400"))
                 HttpURLConnection.HTTP_UNAUTHORIZED -> CreateReservationResult.Failure(401, ERR_AUTH)
                 else -> CreateReservationResult.Failure(code, "서버 응답 오류 (HTTP $code)")
@@ -117,16 +116,18 @@ class ServerClient(
         } catch (e: Exception) { CreateReservationResult.Failure(0, ioErrMsg(e, "예약 생성 중 오류")) }
     }
 
-    /** 1회성 청소 예약 일시를 수정한다 (PUT /api/reservations/{id}, REQ-003, LB-018). */
-    fun updateReservation(serverUrl: String, sharedSecret: String, reservationId: String, newScheduledAt: String, allowDuringOffPeriod: Boolean = false): UpdateReservationResult {
+    /** 1회성 청소 예약 일시를 수정한다 (PUT /api/reservations/{id}, REQ-003, LB-018, LB-058). */
+    fun updateReservation(serverUrl: String, sharedSecret: String, reservationId: String, newScheduledAt: String, allowDuringOffPeriod: Boolean = false, cleaningType: String = ReservationItem.CLEANING_TYPE_DEFAULT): UpdateReservationResult {
         val cleanUrl = normalizeUrl(serverUrl); val cleanSecret = sharedSecret.trim(); val cleanId = reservationId.trim(); val cleanScheduledAt = newScheduledAt.trim()
         if (cleanUrl.isEmpty() || cleanSecret.isEmpty()) return UpdateReservationResult.Failure(400, "서버 주소와 공유 비밀키가 필요합니다.")
         if (cleanId.isEmpty() || cleanScheduledAt.isEmpty()) return UpdateReservationResult.Failure(400, "예약 ID와 새 예약 일시가 필요합니다.")
         return try {
-            val payload = JSONObject().put("scheduled_at", cleanScheduledAt).put("allow_during_off_period", allowDuringOffPeriod)
+            val payload = JSONObject().put("scheduled_at", cleanScheduledAt).put("allow_during_off_period", allowDuringOffPeriod).put("cleaning_type", cleaningType)
             val (code, body) = putJson("$cleanUrl/api/reservations/$cleanId", cleanSecret, payload)
             when (code) {
-                HttpURLConnection.HTTP_OK -> JSONObject(body).let { UpdateReservationResult.Success(it.optString("id", cleanId), it.optString("scheduled_at", it.optString("reserved_at", cleanScheduledAt)), it.optString("status", "예정")) }
+                HttpURLConnection.HTTP_OK -> JSONObject(body).let {
+                    UpdateReservationResult.Success(it.optString("id", cleanId), it.optString("scheduled_at", it.optString("reserved_at", cleanScheduledAt)), it.optString("status", "예정"), cleaningType = it.optString("cleaning_type", cleaningType))
+                }
                 HttpURLConnection.HTTP_BAD_REQUEST -> UpdateReservationResult.Failure(400, extractErrorMsg(body, "과거 시각 또는 수정할 수 없는 예약입니다."))
                 HttpURLConnection.HTTP_UNAUTHORIZED -> UpdateReservationResult.Failure(401, ERR_AUTH)
                 HttpURLConnection.HTTP_NOT_FOUND -> UpdateReservationResult.Failure(404, extractErrorMsg(body, "해당 예약을 찾을 수 없습니다."))
@@ -255,12 +256,12 @@ class ServerClient(
         } catch (e: Exception) { WaterTrackerResult.Failure(0, ioErrMsg(e, "물 추적 상태 조회 오류")) }
     }
 
-    /** '물 채움' 버튼 클릭 시 물걸레 청소 횟수를 0으로 초기화한다 (POST /api/water-tracker/refill, REQ-019, D-14). */
-    fun refillWater(serverUrl: String, sharedSecret: String): WaterTrackerResult {
+    /** '물 채움' 시 물걸레 청소 횟수를 0으로 초기화하고 필요 시 기준 N을 자동 보정한다 (POST /api/water-tracker/refill, REQ-019, REQ-021, D-14). */
+    fun refillWater(serverUrl: String, sharedSecret: String, calibrateThreshold: Boolean = false): WaterTrackerResult {
         val cleanUrl = normalizeUrl(serverUrl); val cleanSecret = sharedSecret.trim()
         if (cleanUrl.isEmpty() || cleanSecret.isEmpty()) return WaterTrackerResult.Failure(400, "서버 주소와 공유 비밀키가 필요합니다.")
         return try {
-            val (code, body) = postJson("$cleanUrl/api/water-tracker/refill", cleanSecret, JSONObject())
+            val (code, body) = postJson("$cleanUrl/api/water-tracker/refill", cleanSecret, JSONObject().put("calibrate_threshold", calibrateThreshold))
             parseWaterTrackerResponse(code, body)
         } catch (e: Exception) { WaterTrackerResult.Failure(0, ioErrMsg(e, "물 채움 처리 중 오류")) }
     }

@@ -16,6 +16,7 @@ import com.smartthings.cleaner.model.ConnectionState
 import com.smartthings.cleaner.model.FetchReservationsResult
 import com.smartthings.cleaner.model.WaterTrackerResult
 import com.smartthings.cleaner.network.ServerClient
+import com.smartthings.cleaner.network.TailscaleDiagnoser
 import com.smartthings.cleaner.notification.AppFirebaseMessagingService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -34,9 +35,12 @@ class HomeActivity : AppCompatActivity() {
 
     private val serverClient = ServerClient()
     private var loadJob: Job? = null
+    private var lastConnectionState: ConnectionState? = null
+    private var currentMopCleanCount: Int = 0
 
     private lateinit var textConnectionLine: TextView
     private lateinit var cardServerWarning: View
+    private lateinit var textServerWarningTitle: TextView
     private lateinit var textServerWarningMessage: TextView
     private lateinit var textNextReservation: TextView
     private lateinit var textReservationCounts: TextView
@@ -48,6 +52,7 @@ class HomeActivity : AppCompatActivity() {
         setContentView(R.layout.activity_home)
         textConnectionLine = findViewById(R.id.textConnectionLine)
         cardServerWarning = findViewById(R.id.cardServerWarning)
+        textServerWarningTitle = findViewById(R.id.textServerWarningTitle)
         textServerWarningMessage = findViewById(R.id.textServerWarningMessage)
         textNextReservation = findViewById(R.id.textNextReservation)
         textReservationCounts = findViewById(R.id.textReservationCounts)
@@ -61,9 +66,17 @@ class HomeActivity : AppCompatActivity() {
         findViewById<View>(R.id.tileReservationList).setOnClickListener { navigateTo(ReservationListActivity::class.java) }
         findViewById<View>(R.id.tileOffPeriod).setOnClickListener { navigateTo(OffPeriodListActivity::class.java) }
         findViewById<View>(R.id.tileWater).setOnClickListener { navigateTo(WaterManagementActivity::class.java) }
-        // 물 채움은 0회 초기화(되돌릴 수 없음)이므로 반드시 확인 대화상자를 거친다(LB-053).
+        // 물 채움은 0회 초기화(되돌릴 수 없음)이므로 반드시 확인 대화상자를 거친다(LB-053, LB-060).
         findViewById<View>(R.id.btnRefillWater).setOnClickListener {
-            RefillConfirmDialog.show(this) { performRefill() }
+            RefillConfirmDialog.show(this, currentMopCleanCount) { calibrate ->
+                performRefill(calibrate)
+            }
+        }
+        cardServerWarning.setOnClickListener {
+            val failed = lastConnectionState as? ConnectionState.Failed
+            if (TailscaleDiagnoser.isTailscaleMessage(failed?.message)) {
+                packageManager.getLaunchIntentForPackage("com.tailscale.ipn")?.let { startActivity(it) }
+            }
         }
         setupNotifications()
     }
@@ -97,7 +110,7 @@ class HomeActivity : AppCompatActivity() {
         textConnectionLine.setTextColor(ContextCompat.getColor(this, R.color.status_connecting))
         loadJob = lifecycleScope.launch {
             val (conn, reservations, water) = withContext(Dispatchers.IO) {
-                val c = async { serverClient.testConnection(url, secret) }
+                val c = async { serverClient.testConnection(url, secret, this@HomeActivity) }
                 val r = async { serverClient.fetchReservations(url, secret) }
                 val w = async { serverClient.fetchWaterTracker(url, secret) }
                 Triple(c.await(), r.await(), w.await())
@@ -109,11 +122,20 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun renderConnection(state: ConnectionState) {
-        // LB-029/REQ-025: 서버에 닿지 않을 때만 '서버에 연결할 수 없음' 경고 카드를 보인다. 인증 실패(401)는 연결 줄 문구로 구분한다.
+        lastConnectionState = state
+        // LB-029/REQ-025, LB-056: 서버에 닿지 않을 때만 경고 카드를 보인다. Tailscale 미연결 시 맞춤 제목·안내를 제공한다.
         val failed = state as? ConnectionState.Failed
         val unreachable = failed?.error == ConnectionError.UNREACHABLE
         cardServerWarning.visibility = if (unreachable) View.VISIBLE else View.GONE
-        if (unreachable) textServerWarningMessage.text = failed?.message
+        if (unreachable) {
+            val isTailscale = TailscaleDiagnoser.isTailscaleMessage(failed?.message)
+            textServerWarningTitle.text = if (isTailscale) {
+                getString(R.string.tailscale_warning_title)
+            } else {
+                getString(R.string.server_unreachable_warning)
+            }
+            textServerWarningMessage.text = failed?.message
+        }
         if (state is ConnectionState.Connected) {
             textConnectionLine.text = getString(R.string.home_conn_connected, state.serverUrl)
             textConnectionLine.setTextColor(ContextCompat.getColor(this, R.color.status_connected))
@@ -149,6 +171,9 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun renderWater(result: WaterTrackerResult) {
+        if (result is WaterTrackerResult.Success) {
+            currentMopCleanCount = result.item.mopCleanCount
+        }
         textTileWater.text = when (result) {
             is WaterTrackerResult.Success ->
                 getString(R.string.home_water_summary, result.item.mopCleanCount, result.item.alertThresholdN)
@@ -156,11 +181,11 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    private fun performRefill() {
+    private fun performRefill(calibrateThreshold: Boolean = false) {
         val url = ServerClient.getSavedServerUrl(this)
         val secret = ServerClient.getSavedSharedSecret(this)
         lifecycleScope.launch {
-            val result = withContext(Dispatchers.IO) { serverClient.refillWater(url, secret) }
+            val result = withContext(Dispatchers.IO) { serverClient.refillWater(url, secret, calibrateThreshold) }
             renderWater(result)
         }
     }

@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS reservations (
     reserved_at TEXT NOT NULL,
     status TEXT NOT NULL,
     allow_during_off_period INTEGER NOT NULL DEFAULT 0,
+    cleaning_type TEXT NOT NULL DEFAULT 'mopAfterVacuum',
     failure_reason TEXT,
     last_device_state TEXT,
     created_at TEXT NOT NULL,

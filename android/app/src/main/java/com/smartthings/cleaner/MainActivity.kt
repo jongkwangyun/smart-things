@@ -14,6 +14,7 @@ import com.google.android.material.card.MaterialCardView
 import com.smartthings.cleaner.model.ConnectionError
 import com.smartthings.cleaner.model.ConnectionState
 import com.smartthings.cleaner.network.ServerClient
+import com.smartthings.cleaner.network.TailscaleDiagnoser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -31,6 +32,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private val serverClient = ServerClient()
+    private var lastFailedState: ConnectionState.Failed? = null
 
     private lateinit var editServerUrl: EditText
     private lateinit var editSharedSecret: EditText
@@ -72,6 +74,11 @@ class MainActivity : AppCompatActivity() {
         textConnectionStatus = findViewById(R.id.textConnectionStatus)
         textStatusDetail = findViewById(R.id.textStatusDetail)
         btnConnect.setOnClickListener { performConnectionCheck() }
+        cardServerWarning.setOnClickListener {
+            if (com.smartthings.cleaner.network.TailscaleDiagnoser.isTailscaleMessage(lastFailedState?.message)) {
+                packageManager.getLaunchIntentForPackage("com.tailscale.ipn")?.let { startActivity(it) }
+            }
+        }
     }
 
     private fun performConnectionCheck() {
@@ -84,7 +91,7 @@ class MainActivity : AppCompatActivity() {
         cardConnectionStatus.visibility = View.GONE
 
         lifecycleScope.launch(Dispatchers.IO) {
-            val result = serverClient.testConnection(serverUrl, sharedSecret)
+            val result = serverClient.testConnection(serverUrl, sharedSecret, this@MainActivity)
             withContext(Dispatchers.Main) { handleResult(result, serverUrl, sharedSecret) }
         }
     }
@@ -107,10 +114,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showFailure(state: ConnectionState.Failed) {
+        lastFailedState = state
         val isUnreachable = state.error == ConnectionError.UNREACHABLE
         cardServerWarning.visibility = if (isUnreachable) View.VISIBLE else View.GONE
         if (isUnreachable) {
-            textServerWarningTitle.text = getString(R.string.server_unreachable_warning)
+            val isTailscale = TailscaleDiagnoser.isTailscaleMessage(state.message)
+            textServerWarningTitle.text = if (isTailscale) {
+                getString(R.string.tailscale_warning_title)
+            } else {
+                getString(R.string.server_unreachable_warning)
+            }
             textServerWarningMessage.text = state.message
         }
         cardConnectionStatus.visibility = View.VISIBLE

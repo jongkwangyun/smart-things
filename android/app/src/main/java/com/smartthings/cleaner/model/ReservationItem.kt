@@ -22,6 +22,7 @@ data class ReservationItem(
     val failureReason: String? = null,
     val lastDeviceState: String? = null,
     val allowDuringOffPeriod: Boolean = false,
+    val cleaningType: String = CLEANING_TYPE_DEFAULT,
     val createdAt: String = "",
     val updatedAt: String = ""
 ) {
@@ -39,6 +40,30 @@ data class ReservationItem(
             STATUS_CANCELLED,
             STATUS_MISSED
         )
+
+        const val CLEANING_TYPE_VACUUM = "vacuum"
+        const val CLEANING_TYPE_MOP = "mop"
+        const val CLEANING_TYPE_MOP_AFTER_VACUUM = "mopAfterVacuum"
+        const val CLEANING_TYPE_VACUUM_AND_MOP = "vacuumAndMopTogether"
+        const val CLEANING_TYPE_DEFAULT = CLEANING_TYPE_MOP_AFTER_VACUUM
+
+        const val LABEL_CLEANING_VACUUM = "먼지청소"
+        const val LABEL_CLEANING_MOP = "물청소"
+        const val LABEL_CLEANING_MOP_AFTER_VACUUM = "먼지 + 물청소"
+
+        fun cleaningTypeToLabel(cleaningType: String?): String = when (cleaningType) {
+            CLEANING_TYPE_VACUUM -> LABEL_CLEANING_VACUUM
+            CLEANING_TYPE_MOP -> LABEL_CLEANING_MOP
+            CLEANING_TYPE_MOP_AFTER_VACUUM, CLEANING_TYPE_VACUUM_AND_MOP -> LABEL_CLEANING_MOP_AFTER_VACUUM
+            else -> LABEL_CLEANING_MOP_AFTER_VACUUM
+        }
+
+        fun labelToCleaningType(label: String): String = when (label) {
+            LABEL_CLEANING_VACUUM -> CLEANING_TYPE_VACUUM
+            LABEL_CLEANING_MOP -> CLEANING_TYPE_MOP
+            LABEL_CLEANING_MOP_AFTER_VACUUM -> CLEANING_TYPE_MOP_AFTER_VACUUM
+            else -> CLEANING_TYPE_DEFAULT
+        }
 
         private val DISPLAY_FORMATTER =
             DateTimeFormatter.ofPattern("yyyy년 MM월 dd일 HH:mm ('KST')", Locale.KOREAN)
@@ -61,6 +86,7 @@ data class ReservationItem(
                 null
             }
             val allowDuringOff = json.optBoolean("allow_during_off_period", false)
+            val cleaningType = json.optString("cleaning_type", CLEANING_TYPE_DEFAULT).ifBlank { CLEANING_TYPE_DEFAULT }
             val createdAt = json.optString("created_at", "")
             val updatedAt = json.optString("updated_at", "")
 
@@ -71,6 +97,7 @@ data class ReservationItem(
                 failureReason = failureReason,
                 lastDeviceState = lastDeviceState,
                 allowDuringOffPeriod = allowDuringOff,
+                cleaningType = cleaningType,
                 createdAt = createdAt,
                 updatedAt = updatedAt
             )
@@ -82,6 +109,11 @@ data class ReservationItem(
      * 상태가 '예정'인 경우 예정 목록에, 나머지(성공·실패·취소·누락)는 지난 예약 목록에 표시.
      */
     fun isUpcoming(): Boolean = status == STATUS_SCHEDULED
+
+    /**
+     * 선택된 청소 방식의 한글 표시 반환 (REQ-001, REQ-002, REQ-003, LB-058).
+     */
+    fun getCleaningTypeLabel(): String = cleaningTypeToLabel(cleaningType)
 
     /**
      * KST 기준 사용자 친화적 일시 문자열 반환.

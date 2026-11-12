@@ -41,6 +41,7 @@ class WaterManagementActivity : AppCompatActivity() {
     var serverUrl: String = ""
     var sharedSecret: String = ""
     var currentThresholdN: Int = 7
+    var currentMopCleanCount: Int = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -67,8 +68,12 @@ class WaterManagementActivity : AppCompatActivity() {
         btnRefresh = findViewById(R.id.btnRefresh)
         btnChangeThreshold = findViewById(R.id.btnChangeThreshold)
 
-        // LB-053: 확인 대화상자에서 확인한 경우에만 물 채움을 기록한다.
-        btnRefillWater.setOnClickListener { RefillConfirmDialog.show(this) { performRefillWater() } }
+        // LB-053, LB-060: 확인 대화상자에서 확인한 경우에만 물 채움을 기록한다.
+        btnRefillWater.setOnClickListener {
+            RefillConfirmDialog.show(this, currentMopCleanCount) { calibrate ->
+                performRefillWater(calibrate)
+            }
+        }
         btnRefresh.setOnClickListener { loadWaterTracker() }
         btnChangeThreshold.setOnClickListener { showChangeThresholdDialog() }
     }
@@ -91,21 +96,26 @@ class WaterManagementActivity : AppCompatActivity() {
         }
     }
 
-    fun performRefillWater() {
+    fun performRefillWater(calibrateThreshold: Boolean = false) {
         if (serverUrl.isEmpty() || sharedSecret.isEmpty()) {
             showStatus(getString(R.string.msg_error_server_not_configured), isError = true)
             return
         }
         setLoading(true, isRefilling = true)
         lifecycleScope.launch(Dispatchers.IO) {
-            val result = serverClient.refillWater(serverUrl, sharedSecret)
+            val result = serverClient.refillWater(serverUrl, sharedSecret, calibrateThreshold)
             withContext(Dispatchers.Main) {
                 setLoading(false)
                 when (result) {
                     is WaterTrackerResult.Success -> {
                         renderWaterTracker(result.item)
-                        Toast.makeText(this@WaterManagementActivity, getString(R.string.msg_confirm_water_refilled), Toast.LENGTH_SHORT).show()
-                        showStatus(getString(R.string.msg_confirm_water_refilled), isError = false)
+                        val msg = if (calibrateThreshold) {
+                            getString(R.string.msg_confirm_water_refilled_calibrated, result.item.alertThresholdN)
+                        } else {
+                            getString(R.string.msg_confirm_water_refilled)
+                        }
+                        Toast.makeText(this@WaterManagementActivity, msg, Toast.LENGTH_SHORT).show()
+                        showStatus(msg, isError = false)
                     }
                     is WaterTrackerResult.Failure -> showStatus(result.message, isError = true)
                 }
@@ -176,6 +186,7 @@ class WaterManagementActivity : AppCompatActivity() {
     }
 
     fun renderWaterTracker(item: WaterTrackerItem) {
+        currentMopCleanCount = item.mopCleanCount
         currentThresholdN = item.alertThresholdN
         textMopCleanCount.text = getString(R.string.text_count_times, item.mopCleanCount)
         textLastRefilledAt.text = item.formatLastRefilledDisplay()

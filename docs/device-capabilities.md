@@ -295,3 +295,86 @@
 - **판정 이유**: 스마트싱스 REST API 및 이벤트 시스템에서 정수통/오수통의 물리적 탈착을 감지할 수 있는 센서 및 속성이 제공되지 않으므로, 통을 뺐다 끼우는 행위를 통한 자동 감지는 물리적·API상 불가능함.
 - **최종 방향 (REQ-019, D-14)**: 현재와 같이 앱 내 "물 채움" 버튼을 통한 수동 초기화 방식을 유지함.
 
+---
+
+## 9. 청소 방식(먼지청소, 물청소, 먼지+물청소) 설정 API 지원 확인
+
+### 분석 배경 및 목적
+- 1회성 청소 예약 시 먼지청소(흡입), 물청소(물걸레), 먼지+물청소 방식을 선택하여 실행할 수 있는지 실제 기기(VR7MD97716G, 디바이스 ID `03431570-5acf-f89e-7b39-275ce15d3258`)를 대상으로 스마트싱스 API 응답 및 명령 호출을 통해 검증한다.
+
+### 실제 상태 및 Capability 명세 확인
+1. **Capability**: `samsungce.robotCleanerCleaningType` (컴포넌트: `main`)
+2. **실제 기기 상태 응답**:
+```json
+{
+  "samsungce.robotCleanerCleaningType": {
+    "cleaningType": {
+      "value": "mopAfterVacuum",
+      "timestamp": "2026-11-09T03:00:00.651Z"
+    },
+    "supportedCleaningTypes": {
+      "value": ["vacuum", "mop", "vacuumAndMopTogether", "mopAfterVacuum"],
+      "timestamp": "2026-10-26T10:06:07.421Z"
+    },
+    "availableCleaningTypes": {
+      "value": ["vacuum", "mop", "vacuumAndMopTogether", "mopAfterVacuum"],
+      "timestamp": "2026-10-26T10:06:07.421Z"
+    }
+  }
+}
+```
+3. **지원 청소 방식 값 (4종)**:
+   - `vacuum`: 먼지청소 (흡입 단독)
+   - `mop`: 물청소 (물걸레 단독)
+   - `vacuumAndMopTogether`: 먼지 + 물청소 (동시 청소)
+   - `mopAfterVacuum`: 먼지청소 후 물청소 (순차 청소, 기기 기본 사용값)
+
+### 실제 명령 호출 및 상태 전이 검증 (2026-11-11 KST)
+1. **명령 규격**:
+   - 엔드포인트: `POST /v1/devices/{device_id}/commands`
+   - 요청 본문:
+```json
+{
+  "commands": [
+    {
+      "component": "main",
+      "capability": "samsungce.robotCleanerCleaningType",
+      "command": "setCleaningType",
+      "arguments": ["vacuum"]
+    }
+  ]
+}
+```
+2. **호출 및 상태 전이 결과**:
+   - `setCleaningType("vacuum")` 호출 → 응답 `COMPLETED`, 2.5초 후 상태 조회 시 `cleaningType.value == "vacuum"` (`2026-11-11T13:49:24.596Z`) 확인.
+   - `setCleaningType("mop")` 호출 → 응답 `COMPLETED`, 2.5초 후 상태 조회 시 `cleaningType.value == "mop"` (`2026-11-11T13:49:44.431Z`) 확인.
+   - `setCleaningType("vacuumAndMopTogether")` 호출 → 응답 `COMPLETED`, 2.5초 후 상태 조회 시 `cleaningType.value == "vacuumAndMopTogether"` (`2026-11-11T13:49:47.207Z`) 확인.
+   - `setCleaningType("mopAfterVacuum")` 호출(원래 값 복원) → 응답 `COMPLETED`, 2.5초 후 상태 조회 시 `cleaningType.value == "mopAfterVacuum"` (`2026-11-11T13:49:49.996Z`) 확인.
+
+### 결론
+**지원 확인 완료 (선택 및 원격 변경 가능)**
+- 예약 실행 시 `setCleaningType` 명령으로 청소 방식을 설정한 뒤 `start` 명령을 호출하면 지정한 청소 방식으로 청소를 시작할 수 있다.
+- 먼지청소 단독(`vacuum`) 실행 시에는 물을 사용하지 않으므로 물걸레 청소 횟수(`WaterTracker.mop_clean_count`) 증가 대상에서 제외(`is_mop=False`)해야 한다.
+
+---
+
+## 10. 외부 시작(스마트싱스 앱·반복 예약·본체 버튼) 물청소 자동 감지 및 물 부족 기준 횟수(N) 학습 방식 (REQ-019, REQ-020, REQ-021)
+
+### 분석 배경 및 목적
+- 이 앱의 1회성 예약뿐만 아니라 스마트싱스 앱(반복 예약·즉시 실행)이나 청소기 본체 버튼으로 시작한 청소도 물청소인지 감지하여 횟수를 자동으로 카운트할 수 있는지 확인한다.
+- 물 한 번 채운 뒤 몇 번 청소하고 물 부족이 뜨는지를 감지해 알림 기준 횟수(`N`)를 맞추는 방법을 확정한다.
+
+### 실제 기기 이벤트 히스토리(`/v1/history/devices`) 및 상태 응답 근거 (2026-11-11 KST)
+1. **청소 세션 및 물청소 여부 감지 근거**:
+   - 스마트싱스 기기 히스토리 500건 조회 결과, 어디서 청소를 시작하든 청소 시작 시 `robotCleanerMovement = "cleaning"` (`robotCleanerCleaningMode = "auto"`)으로 전이되고, 물걸레 세척 시 `robotCleanerMovement = "washingMop"` (`operatingState = "washingMop"`)을 거치며, 종료 시 `homing` → `charging` (`robotCleanerCleaningMode = "stop"`)으로 전이됨을 확인하였다.
+   - 또한 상태 조회(`/v1/devices/{id}/status`)의 `main.samsungce.robotCleanerCleaningType.cleaningType.value`가 `"mop"`, `"vacuumAndMopTogether"`, `"mopAfterVacuum"` 중 하나이면 물청소 세션이고 `"vacuum"`이면 먼지 단독 청소 세션임을 구분할 수 있다.
+   - 따라서 미니PC 서버가 기기 상태를 주기적으로 감시하면 **모든 경로에서 시작된 물청소를 세션당 1회씩 누락·중복 없이 자동 카운트**할 수 있다.
+2. **물 부족 발생 시점 감지 한계와 방식 A(물 채움 시 기준 N 자동 보정) 확정**:
+   - 기기 히스토리에서 오류 발생 시 `robotCleanerMovement = "alarm"` (`operatingState = "error"`, `data: {}`)만 기록되며, 상세 오류 원인 코드(물 부족 vs 기타 오류)나 물통 탈착 이벤트는 API에서 제공되지 않는다.
+   - 이에 따라 **방식 A(물 채울 때 학습·보정)**를 채택한다:
+     - 서버가 모든 경로의 물청소 횟수(`mop_clean_count`)를 자동으로 누적한다.
+     - 사용자가 물 부족이 떠서 물을 채우고 앱에서 **"물 채움"**을 누를 때 **"물 부족 때문에 채우셨나요?"**(기준 자동 보정 옵션)를 선택하면, 그때까지 누적된 물청소 횟수(`K`)를 바탕으로 물 부족이 뜨기 직전 알림이 오도록 알림 기준 횟수 `N = max(1, K - 1)`로 자동 보정하고 횟수를 `0`으로 초기화한다.
+     - 물 부족이 뜨기 전에 미리 채운 경우에는 기존 기준 `N`을 유지하고 횟수만 `0`으로 초기화한다.
+
+
+

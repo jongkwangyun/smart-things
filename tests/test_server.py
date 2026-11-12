@@ -205,6 +205,34 @@ class TestServer(unittest.TestCase):
         finally:
             srv.close()
 
+    def test_reservation_cleaning_type_api(self) -> None:
+        srv = create_server(Config(host="127.0.0.1", port=0, db_path=self.db_path, shared_secret=self.test_secret))
+        try:
+            future = format_kst((now_kst() + timedelta(hours=2)).replace(second=0, microsecond=0))
+            future_update = format_kst((now_kst() + timedelta(hours=3)).replace(second=0, microsecond=0))
+            st, body = self._request(srv, "POST", "/api/reservations", {
+                "id": "res-api-vac", "scheduled_at": future, "cleaning_type": "vacuum",
+            })
+            self.assertEqual(st, 201)
+            self.assertEqual(body["cleaning_type"], "vacuum")
+
+            st, body = self._request(srv, "GET", "/api/reservations/res-api-vac")
+            self.assertEqual(st, 200)
+            self.assertEqual(body["cleaning_type"], "vacuum")
+
+            st, body = self._request(srv, "PUT", "/api/reservations/res-api-vac", {
+                "scheduled_at": future_update, "cleaning_type": "mop",
+            })
+            self.assertEqual(st, 200)
+            self.assertEqual(body["cleaning_type"], "mop")
+
+            st, body = self._request(srv, "POST", "/api/reservations", {
+                "scheduled_at": future, "cleaning_type": "badType",
+            })
+            self.assertEqual(st, 400)
+        finally:
+            srv.close()
+
 
 if __name__ == "__main__":
     unittest.main()

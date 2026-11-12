@@ -3,18 +3,27 @@ from __future__ import annotations
 import json
 import urllib.error
 import urllib.request
-from dataclasses import dataclass, field
 from typing import Any
 
+from server.models import VALID_CLEANING_TYPES
 from server.smartthings.auth import SmartThingsTokenManager
+from server.smartthings.models import (
+    SUPPORTED_OPERATING_STATES,
+    DeviceStatus,
+    make_simulated_status,
+    parse_failure_reason,
+)
 from server.time_utils import format_kst, now_kst
 
-SUPPORTED_OPERATING_STATES: list[str] = [
-    "homing", "charging", "charged", "chargingForRemainingJob", "moving", "cleaning", "paused", "idle", "error",
-    "powerSaving", "factoryReset", "relocal", "exploring", "patrol", "monitoring", "manual", "processing",
-    "messaging", "emitDust", "findingPet", "calibrating", "welcoming", "monitoringAutomation", "washingMop",
-    "sterilizingMop", "dryingMop", "supplyingWater", "preparingWater", "spinDrying", "flexCharged",
-    "mopWashingPaused", "descaling", "drainingWater", "waitingForDescaling", "sabbath",
+__all__ = [
+    "SUPPORTED_OPERATING_STATES",
+    "DeviceStatus",
+    "SmartThingsApiError",
+    "SmartThingsAuthError",
+    "SmartThingsClient",
+    "SmartThingsError",
+    "make_simulated_status",
+    "parse_failure_reason",
 ]
 
 
@@ -30,92 +39,20 @@ class SmartThingsApiError(SmartThingsError):
     """스마트싱스 API 호출/응답 실패 예외."""
 
 
-@dataclass
-class DeviceStatus:
-    """스마트싱스 로봇청소기 VR7MD97716G 상태 모델."""
-    device_id: str
-    model: str = "VR7MD97716G"
-    name: str = "Bespoke AI Combo"
-    operating_state: str = "idle"
-    battery: int = 100
-    is_online: bool = True
-    switch: str = "off"
-    dust_filter_status: str = "normal"
-    dust_bag_status: str = "normal"
-    motor_filter_status: str = "normal"
-    raw_status: dict[str, Any] = field(default_factory=dict)
-    checked_at: str = ""
-
-    def summary(self) -> str:
-        return (
-            f"기기 ID: {self.device_id} | 모델: {self.model} | 상태: {self.operating_state} | "
-            f"배터리: {self.battery}% | 전원: {self.switch} | 온라인: {self.is_online}"
-        )
-
-
-def make_simulated_status(
-    device_id: str,
-    operating_state: str = "idle",
-    battery: int = 100,
-    dust_bag_status: str = "normal",
-    motor_filter_status: str = "normal",
-    dnd_mode: str = "off",
-    dnd_start: str = "0000",
-    dnd_end: str = "0000",
-) -> dict[str, Any]:
-    """오프라인/테스트 환경용 VR7MD97716G 시뮬레이션 상태 딕셔너리 생성."""
-    return {
-        "components": {
-            "main": {
-                "robotCleanerOperatingState": {"operatingState": {"value": operating_state}},
-                "robotCleanerMovement": {"homing": {"value": False}},
-                "battery": {"battery": {"value": battery, "unit": "%"}},
-                "switch": {"switch": {"value": "on" if operating_state == "cleaning" else "off"}},
-                "custom.dustFilter": {"filterStatus": {"value": "normal"}},
-                "samsungce.robotCleanerMotorFilter": {"motorFilterStatus": {"value": motor_filter_status}},
-                "custom.doNotDisturbMode": {
-                    "doNotDisturb": {"value": dnd_mode},
-                    "startTime": {"value": dnd_start},
-                    "endTime": {"value": dnd_end},
-                },
-            },
-            "station": {"samsungce.robotCleanerDustBag": {"dustBagStatus": {"value": dust_bag_status}}},
-        }
-    }
-
-
-def parse_failure_reason(
-    device_status: DeviceStatus | None, health_state: str = "ONLINE", fallback_unknown: bool = False,
-) -> str | None:
-    """기기 상태 및 헬스 정보로부터 청소 실패 원인을 분석한다 (REQ-009, A-03)."""
-    if str(health_state).upper() == "OFFLINE" or (device_status is not None and not device_status.is_online):
-        return "기기 오프라인"
-    if device_status is None:
-        return "원인 미확인 (기기 상태 정보 없음)" if fallback_unknown else None
-    if device_status.battery < 20:
-        return f"배터리 부족 ({device_status.battery}%)"
-    if device_status.dust_bag_status == "full":
-        return "먼지통 가득 참"
-    if device_status.motor_filter_status in ("washRequired", "washable", "dirty") or (
-        device_status.motor_filter_status not in ("normal", "")
-    ):
-        return "모터 필터 세척 필요"
-    if device_status.operating_state == "error":
-        return "기기 동작 오류 (error)"
-    return f"원인 미확인 (마지막 상태: {device_status.operating_state})" if fallback_unknown else None
-
-
 class SmartThingsClient:
     """스마트싱스 REST API 통신 클라이언트."""
 
     def __init__(
-        self, token_manager: SmartThingsTokenManager, base_url: str = "https://api.smartthings.com/v1",
+        self,
+        token_manager: SmartThingsTokenManager,
+        base_url: str = "https://api.smartthings.com/v1",
         simulated: bool = False,
     ) -> None:
         self.token_manager = token_manager
         self.base_url = base_url.rstrip("/")
         self.simulated = simulated
         self.simulated_health = "ONLINE"
+        self.simulated_cleaning_type = "mopAfterVacuum"
         self.simulated_dnd: dict[str, str] = {"startTime": "0000", "endTime": "0000", "doNotDisturb": "off"}
 
     def get_device_status(self, device_id: str) -> DeviceStatus:
@@ -127,9 +64,13 @@ class SmartThingsClient:
 
         if self.simulated:
             dnd = getattr(self, "simulated_dnd", {"startTime": "0000", "endTime": "0000", "doNotDisturb": "off"})
+            ctype = getattr(self, "simulated_cleaning_type", "mopAfterVacuum")
             raw = make_simulated_status(
-                device_id, dnd_mode=dnd.get("doNotDisturb", "off"),
-                dnd_start=dnd.get("startTime", "0000"), dnd_end=dnd.get("endTime", "0000"),
+                device_id,
+                dnd_mode=dnd.get("doNotDisturb", "off"),
+                dnd_start=dnd.get("startTime", "0000"),
+                dnd_end=dnd.get("endTime", "0000"),
+                cleaning_type=ctype,
             )
             self.token_manager.logger.info("기기 상태 조회 성공 (시뮬레이션 모드): device_id=%s", device_id)
             return self._parse_status(device_id, raw)
@@ -205,6 +146,26 @@ class SmartThingsClient:
     ) -> str | None:
         """기기 상태 및 헬스 정보로부터 청소 실패 원인을 분석한다 (REQ-009, A-03)."""
         return parse_failure_reason(device_status, health_state, fallback_unknown=fallback_unknown)
+
+    def set_cleaning_type(self, device_id: str, cleaning_type: str) -> dict[str, Any]:
+        """청소 방식을 설정한다 (samsungce.robotCleanerCleaningType: setCleaningType)."""
+        if cleaning_type not in VALID_CLEANING_TYPES:
+            allowed = ", ".join(sorted(VALID_CLEANING_TYPES))
+            raise ValueError(f"유효하지 않은 청소 방식입니다: {cleaning_type}. 허용 값: {allowed}")
+
+        cmd = [{
+            "component": "main",
+            "capability": "samsungce.robotCleanerCleaningType",
+            "command": "setCleaningType",
+            "arguments": [cleaning_type],
+        }]
+        if self.simulated:
+            self.simulated_cleaning_type = cleaning_type
+            self.token_manager.logger.info(
+                "청소 방식 설정 성공 (시뮬): device_id=%s, cleaning_type=%s", device_id, cleaning_type
+            )
+            return {"results": [{"id": "simulated-cmd-id", "status": "COMPLETED"}]}
+        return self.execute_commands(device_id, cmd)
 
     def start_cleaning(self, device_id: str) -> dict[str, Any]:
         """청소 시작 명령을 전송한다 (samsungce.robotCleanerOperatingState: start)."""
@@ -288,12 +249,17 @@ class SmartThingsClient:
         motor_filter = (
             main.get("samsungce.robotCleanerMotorFilter", {}).get("motorFilterStatus", {}).get("value", "normal")
         )
+        cleaning_type = (
+            main.get("samsungce.robotCleanerCleaningType", {})
+            .get("cleaningType", {})
+            .get("value", "mopAfterVacuum")
+        )
 
         return DeviceStatus(
             device_id=device_id, model="VR7MD97716G", name="Bespoke AI Combo",
             operating_state=str(op_state), battery=battery, is_online=True,
             switch=str(switch_val), dust_filter_status=str(filter_val),
             dust_bag_status=str(dust_bag), motor_filter_status=str(motor_filter),
+            cleaning_type=str(cleaning_type),
             raw_status=data, checked_at=format_kst(now_kst()),
         )
-

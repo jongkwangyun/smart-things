@@ -3,9 +3,13 @@ name: Build Android APK
 on:
   push:
     branches: [ main ]
-    paths-ignore:
-      - 'apk/**'
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      tag:
+        description: 'APK 를 붙일 릴리스 태그 (release-please 가 전달)'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -48,26 +52,10 @@ jobs:
           name: smartthings-cleaner-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Copy APK to repository and push
-        run: |
-          mkdir -p apk
-          cp android/app/build/outputs/apk/debug/app-debug.apk apk/smartthings-cleaner.apk
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add apk/smartthings-cleaner.apk
-          if ! git diff --cached --quiet; then
-            git commit -m "build(android): update built APK [skip ci]"
-            git push origin HEAD:main
-          fi
-
-      - name: Create or Update GitHub Release
+      - name: Upload APK to GitHub Release
+        if: ${{ inputs.tag != '' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if gh release view v1.0.0 >/dev/null 2>&1; then
-            gh release upload v1.0.0 apk/smartthings-cleaner.apk --clobber
-          else
-            gh release create v1.0.0 apk/smartthings-cleaner.apk \
-              --title "스마트싱스 로봇청소기 앱 (v1.0.0)" \
-              --notes "갤럭시 S21+ 및 갤럭시 폴드8 설치용 APK 파일입니다. 아래 Assets에서 smartthings-cleaner.apk를 다운로드하여 설치하세요."
-          fi
+          cp android/app/build/outputs/apk/debug/app-debug.apk smartthings-cleaner.apk
+          gh release upload "${{ inputs.tag }}" smartthings-cleaner.apk --clobber

@@ -159,9 +159,11 @@ class ReservationListActivity : AppCompatActivity() {
         val textScheduledAt = view.findViewById<TextView>(R.id.textScheduledAt); val textReservationId = view.findViewById<TextView>(R.id.textReservationId)
         val textStatusBadge = view.findViewById<TextView>(R.id.textStatusBadge); val cardStatusBadge = view.findViewById<MaterialCardView>(R.id.cardStatusBadge)
         val textFailureReason = view.findViewById<TextView>(R.id.textFailureReason); val textOffPeriodNotice = view.findViewById<TextView>(R.id.textOffPeriodNotice)
+        val textCleaningType = view.findViewById<TextView?>(R.id.textCleaningType)
         val btnEditReservation = view.findViewById<MaterialButton?>(R.id.btnEditReservation); val btnCancelReservation = view.findViewById<MaterialButton?>(R.id.btnCancelReservation)
 
         textScheduledAt.text = item.formatKstDisplay()
+        textCleaningType?.text = "청소 방식: ${item.getCleaningTypeLabel()}"
         textReservationId.text = "ID: ${item.id}"
 
         val style = getStatusStyle(item.status)
@@ -217,21 +219,23 @@ class ReservationListActivity : AppCompatActivity() {
     private val editLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
         val item = editingItem
         val isoStr = res.data?.getStringExtra(CreateReservationActivity.RESULT_SCHEDULED_AT)
+        val cleaningType = res.data?.getStringExtra(CreateReservationActivity.RESULT_CLEANING_TYPE) ?: item?.cleaningType ?: ReservationItem.CLEANING_TYPE_DEFAULT
         if (res.resultCode != RESULT_OK || item == null || isoStr == null) return@registerForActivityResult
         // 과거 시각 차단은 피커 화면(CreateReservationActivity)이 수행. 이후 쉬는 기간 경고·수정 호출은 기존 흐름 그대로.
-        checkAndPerformUpdate(item.id, ZonedDateTime.parse(isoStr), isoStr)
+        checkAndPerformUpdate(item.id, ZonedDateTime.parse(isoStr), isoStr, cleaningType)
     }
 
-    /** 예약 수정: 공용 피커 화면(달력+시간 휠, LB-049)을 선택 전용 모드로 열어 새 일시를 받는다. */
+    /** 예약 수정: 공용 피커 화면(달력+시간 휠, LB-049)을 선택 전용 모드로 열어 새 일시와 청소 방식을 받는다. */
     fun showEditPickers(item: ReservationItem) {
         editingItem = item
         editLauncher.launch(Intent(this, CreateReservationActivity::class.java).apply {
             putExtra(CreateReservationActivity.EXTRA_PICK_ONLY, true)
             putExtra(CreateReservationActivity.EXTRA_SCHEDULED_AT, item.scheduledAt)
+            putExtra(CreateReservationActivity.EXTRA_CLEANING_TYPE, item.cleaningType)
         })
     }
 
-    fun checkAndPerformUpdate(reservationId: String, newDt: ZonedDateTime, isoStr: String) {
+    fun checkAndPerformUpdate(reservationId: String, newDt: ZonedDateTime, isoStr: String, cleaningType: String = ReservationItem.CLEANING_TYPE_DEFAULT) {
         val (serverUrl, sharedSecret) = getCredentials()
         if (serverUrl.isBlank() || sharedSecret.isBlank()) return showError("서버 주소와 비밀키가 설정되지 않았습니다.")
         progressBar.visibility = View.VISIBLE
@@ -243,11 +247,11 @@ class ReservationListActivity : AppCompatActivity() {
                 progressBar.visibility = View.GONE
                 if (inside) {
                     showOffPeriodWarningDialog(
-                        onConfirm = { performUpdateReservation(reservationId, isoStr, allowDuringOffPeriod = true) },
+                        onConfirm = { performUpdateReservation(reservationId, isoStr, allowDuringOffPeriod = true, cleaningType = cleaningType) },
                         onCancel = { /* 취소: 저장하지 않음 (Done When) */ }
                     )
                 } else {
-                    performUpdateReservation(reservationId, isoStr, allowDuringOffPeriod = false)
+                    performUpdateReservation(reservationId, isoStr, allowDuringOffPeriod = false, cleaningType = cleaningType)
                 }
             }
         }
@@ -261,12 +265,12 @@ class ReservationListActivity : AppCompatActivity() {
             .setCancelable(false).show()
     }
 
-    fun performUpdateReservation(reservationId: String, newScheduledAt: String, allowDuringOffPeriod: Boolean = false) {
+    fun performUpdateReservation(reservationId: String, newScheduledAt: String, allowDuringOffPeriod: Boolean = false, cleaningType: String = ReservationItem.CLEANING_TYPE_DEFAULT) {
         val (serverUrl, sharedSecret) = getCredentials()
         if (serverUrl.isBlank() || sharedSecret.isBlank()) return showError("서버 주소와 비밀키가 설정되지 않았습니다.")
         progressBar.visibility = View.VISIBLE
         lifecycleScope.launch(Dispatchers.IO) {
-            val result = serverClient.updateReservation(serverUrl, sharedSecret, reservationId, newScheduledAt, allowDuringOffPeriod)
+            val result = serverClient.updateReservation(serverUrl, sharedSecret, reservationId, newScheduledAt, allowDuringOffPeriod, cleaningType)
             withContext(Dispatchers.Main) {
                 progressBar.visibility = View.GONE
                 when (result) {

@@ -5,7 +5,7 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
-from server.models import STATUS_CANCELLED, STATUS_SCHEDULED, Reservation
+from server.models import DEFAULT_CLEANING_TYPE, STATUS_CANCELLED, STATUS_SCHEDULED, Reservation
 from server.reservations.validator import (
     ReservationError,
     ReservationValidationError,
@@ -50,6 +50,7 @@ class ReservationService:
             reserved_at=validated["reserved_at"],
             status=STATUS_SCHEDULED,
             allow_during_off_period=validated["allow_during_off_period"],
+            cleaning_type=validated.get("cleaning_type", DEFAULT_CLEANING_TYPE),
             failure_reason=None,
             last_device_state=None,
             created_at=created_now,
@@ -80,6 +81,8 @@ class ReservationService:
         res.updated_at = now
         if "allow_during_off_period" in validated:
             res.allow_during_off_period = validated["allow_during_off_period"]
+        if "cleaning_type" in validated:
+            res.cleaning_type = validated["cleaning_type"]
 
         return self.storage.save_reservation(res)
 

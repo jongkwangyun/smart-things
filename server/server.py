@@ -6,7 +6,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 from server.auth import extract_secret_from_headers, is_health_check_path, verify_shared_secret
 from server.config import Config
@@ -116,7 +116,13 @@ class MiniPCHandler(BaseHTTPRequestHandler):
         storage = self.server.storage
         try:
             if path == "/api/water-tracker/refill":
-                return self._send_json(HTTPStatus.OK, WaterService(storage).refill_water().to_dict())
+                qs = parse_qs(urlparse(self.path).query)
+                q_cal = qs.get("calibrate_threshold", [""])[0].lower() in ("true", "1", "yes")
+                payload = self._read_json() or {}
+                b_val = payload.get("calibrate_threshold")
+                b_cal = bool(b_val is True or str(b_val).lower() in ("true", "1", "yes"))
+                refill_res = WaterService(storage).refill_water(calibrate_threshold=(q_cal or b_cal))
+                return self._send_json(HTTPStatus.OK, refill_res.to_dict())
             if path.startswith("/api/reservations/") and path.endswith("/cancel"):
                 res_id = path.removeprefix("/api/reservations/").removesuffix("/cancel")
                 return self._send_item(
@@ -204,23 +210,17 @@ class MiniPCHandler(BaseHTTPRequestHandler):
         storage = self.server.storage
         if path.startswith("/api/reservations/"):
             rid = path.removeprefix("/api/reservations/")
-            return self._send_delete(
-                storage.delete_reservation(rid), {"deleted": True, "id": rid}, f"Reservation {rid} not found"
-            )
+            ok = storage.delete_reservation(rid)
+            return self._send_delete(ok, {"deleted": True, "id": rid}, f"Reservation {rid} not found")
         if path.startswith("/api/off-periods/"):
             oid = path.removeprefix("/api/off-periods/")
             dnd_m = getattr(self.server.scheduler, "dnd_sync_manager", None)
-            return self._send_delete(
-                OffPeriodService(storage, dnd_sync_manager=dnd_m).delete_off_period(oid),
-                {"deleted": True, "id": oid}, f"OffPeriod {oid} not found",
-            )
+            ok = OffPeriodService(storage, dnd_sync_manager=dnd_m).delete_off_period(oid)
+            return self._send_delete(ok, {"deleted": True, "id": oid}, f"OffPeriod {oid} not found")
         if path.startswith("/api/notification-targets/"):
             dev_id = path.removeprefix("/api/notification-targets/")
-            return self._send_delete(
-                storage.delete_notification_target(dev_id),
-                {"deleted": True, "device_id": dev_id},
-                f"Device {dev_id} not found",
-            )
+            ok = storage.delete_notification_target(dev_id)
+            return self._send_delete(ok, {"deleted": True, "device_id": dev_id}, f"Device {dev_id} not found")
         self._send_error_json(HTTPStatus.NOT_FOUND, f"Path {path} not found")
 
 

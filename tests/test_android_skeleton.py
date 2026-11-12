@@ -54,7 +54,8 @@ class TestAndroidSkeletonStructure(unittest.TestCase):
 
     def test_code_files_line_count_under_limit(self) -> None:
         """모든 안드로이드 코드/설정 파일이 300줄 이하인지 검사."""
-        for root, _, files in os.walk(ANDROID_ROOT):
+        for root, dirs, files in os.walk(ANDROID_ROOT):
+            dirs[:] = [d for d in dirs if d not in ('build', '.gradle', '.idea')]
             for file in files:
                 if file.endswith((".kt", ".kts", ".xml", ".properties")):
                     p = Path(root) / file

@@ -11,7 +11,8 @@ sealed class CreateReservationResult {
         val id: String,
         val scheduledAt: String,
         val status: String,
-        val message: String = "예약이 등록되었습니다"
+        val message: String = "예약이 등록되었습니다",
+        val cleaningType: String = ReservationItem.CLEANING_TYPE_DEFAULT
     ) : CreateReservationResult()
 
     data class Failure(

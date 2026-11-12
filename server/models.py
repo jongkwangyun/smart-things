@@ -21,6 +21,19 @@ VALID_RESERVATION_STATUSES = {
     STATUS_MISSED,
 }
 
+CLEANING_TYPE_VACUUM = "vacuum"
+CLEANING_TYPE_MOP = "mop"
+CLEANING_TYPE_VACUUM_AND_MOP = "vacuumAndMopTogether"
+CLEANING_TYPE_MOP_AFTER_VACUUM = "mopAfterVacuum"
+
+VALID_CLEANING_TYPES: frozenset[str] = frozenset({
+    CLEANING_TYPE_VACUUM,
+    CLEANING_TYPE_MOP,
+    CLEANING_TYPE_VACUUM_AND_MOP,
+    CLEANING_TYPE_MOP_AFTER_VACUUM,
+})
+DEFAULT_CLEANING_TYPE = CLEANING_TYPE_MOP_AFTER_VACUUM
+
 
 @dataclass
 class Reservation:
@@ -28,6 +41,7 @@ class Reservation:
     reserved_at: datetime
     status: str = STATUS_SCHEDULED
     allow_during_off_period: bool = False
+    cleaning_type: str = DEFAULT_CLEANING_TYPE
     failure_reason: str | None = None
     last_device_state: str | None = None
     created_at: datetime = field(default_factory=now_kst)
@@ -41,6 +55,7 @@ class Reservation:
             "scheduled_at": format_kst(self.reserved_at),
             "status": self.status,
             "allow_during_off_period": self.allow_during_off_period,
+            "cleaning_type": self.cleaning_type,
             "failure_reason": self.failure_reason,
             "last_device_state": self.last_device_state,
             "created_at": format_kst(self.created_at),
@@ -56,6 +71,7 @@ class Reservation:
             reserved_at=parse_kst(raw_at),
             status=str(data.get("status", STATUS_SCHEDULED)),
             allow_during_off_period=bool(data.get("allow_during_off_period", False)),
+            cleaning_type=str(data.get("cleaning_type") or DEFAULT_CLEANING_TYPE),
             failure_reason=data.get("failure_reason"),
             last_device_state=data.get("last_device_state"),
             created_at=parse_kst(data["created_at"]) if "created_at" in data else now_kst(),

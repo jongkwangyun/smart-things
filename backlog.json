@@ -1,7 +1,7 @@
 {
   "$schema_version": "1",
   "meta": {
-    "updated": "2026-11-05",
+    "updated": "2026-11-12",
     "context_doc": "SPEC.md",
     "note": "로봇청소기 VR7MD97716G 스마트싱스 확장 작업 SSOT — 상세 기준은 각 작업의 done_when과 must에 있다"
   },
@@ -881,7 +881,7 @@
     {
       "id": "LB-054",
       "reqs": [],
-      "status": "in_progress",
+      "status": "done",
       "priority": "나중",
       "category": "앱기반",
       "title": "release-please 도입 및 APK 배포를 릴리스 Asset으로 전환",
@@ -890,9 +890,9 @@
       "parent": null,
       "deps": [],
       "doc": null,
-      "done_at": null,
+      "done_at": "2026-11-12",
       "must": "기존 APK 서명 검증 단계(signing.sha256 비교)를 유지한다. build.gradle.kts 의 versionName 을 release-please extra-files 로 연동한다. keystore 와 signing.sha256 은 건드리지 않는다",
-      "memo": "[2026-11-05] [2026-11-05] 파일 작성·YAML/JSON 문법 검증(js-yaml, json), ruff pass, apk/ git rm 완료. 미검증: 실제 GitHub Actions 실행(Release PR 생성, 릴리스 머지 후 APK 업로드). 저장소 설정 Allow GitHub Actions to create pull requests 필요. 커밋·푸시 전."
+      "memo": "[2026-11-05] [2026-11-05] 파일 작성·YAML/JSON 문법 검증(js-yaml, json), ruff pass, apk/ git rm 완료. 미검증: 실제 GitHub Actions 실행(Release PR 생성, 릴리스 머지 후 APK 업로드). 저장소 설정 Allow GitHub Actions to create pull requests 필요. 커밋·푸시 전.\n[2026-11-12] 검증 완료: release-please.yml, release-please-config.json, .release-please-manifest.json 구성, build-apk.yml workflow_call 연동 및 repo push 제거, apk/ git rm 완료. test_apk_signing.py 4건 pass, npx js-yaml 및 json 파싱 검증 완료, ruff/mypy/compileall pass. code_reviewer 독립 리뷰 PASS."
     },
     {
       "id": "LB-055",
@@ -909,6 +909,86 @@
       "done_at": "2026-11-05",
       "must": "앱 테마를 Light 로 고정한다. 서버 주소·비밀키를 저장소에 커밋하지 않는다.",
       "memo": "[2026-11-05] 원인: 테마가 Theme.MaterialComponents.DayNight 라 다크 모드 폰에서 입력칸 라벨·테두리가 밝은색이 되어 흰 카드(surface #FFFFFF) 위에서 안 보임. 수정: themes.xml parent 를 Theme.MaterialComponents.Light.NoActionBar 로 고정. 검증: gradle assembleDebug testDebugUnitTest exit 0, 에뮬레이터 다크 모드(uimode night yes)에서 서버 주소·공유 비밀키 입력칸 라벨·테두리 표시 스크린샷 확인. 미검증: 실기기, 입력 글자 색(타이핑 후)."
+    },
+    {
+      "id": "LB-056",
+      "reqs": ["REQ-025"],
+      "status": "done",
+      "priority": "나중",
+      "category": "앱기반",
+      "title": "서버 연결 실패 시 Tailscale 미연결 진단 및 활성화 안내",
+      "done_when": "서버 연결 실패 시 설정된 서버 주소가 Tailscale 대역(100.64.0.0/10 등)이고 Tailscale 연결이 꺼져 있는 상태면 단순 오류 대신 Tailscale 활성화 안내 메시지가 표시된다",
+      "where": "android/app/src/main/java/com/smartthings/cleaner/network/ServerClient.kt, android/app/src/main/java/com/smartthings/cleaner/HomeActivity.kt",
+      "parent": null,
+      "deps": ["LB-029", "LB-047"],
+      "doc": null,
+      "done_at": "2026-11-12",
+      "must": "설정된 서버 주소가 Tailscale IP(100.x.x.x) 또는 tailscale 도메인일 때 Tailscale VPN 미연결 상태를 진단하여 사용자에게 Tailscale 앱 실행/연결 안내를 제공한다. 일반 LAN 또는 외부 도메인일 때는 기존 일반 연결 오류 안내를 유지한다.",
+      "memo": "[2026-11-12] TailscaleDiagnoser(RFC 6598 100.64.0.0/10 및 *.ts.net 판별, VPN 미연결 감지) 구현 및 ServerClient/HomeActivity/MainActivity 연동 완료. Gradle testDebugUnitTest(30/30), ruff, mypy, test_android_skeleton 통과. code_reviewer 독립 검증 PASS 확인."
+    },
+    {
+      "id": "LB-057",
+      "reqs": ["REQ-001", "REQ-002", "REQ-003", "REQ-005", "REQ-020"],
+      "status": "done",
+      "priority": "나중",
+      "category": "1회성예약",
+      "title": "1회성 예약 청소 방식(먼지청소·물청소·먼지+물청소) 지원 서버 API 및 스케줄러 반영",
+      "done_when": "예약 생성·수정·조회 API에 cleaning_type 필드가 반영되고, 스케줄러가 예약 시각에 setCleaningType 호출 후 청소를 시작하며, 먼지청소 단독(vacuum) 시에는 물걸레 청소 횟수(mop_clean_count)가 증가하지 않는다",
+      "where": "server/models.py, server/schema.py, server/storage.py, server/reservations/validator.py, server/reservations/service.py, server/smartthings/client.py, server/scheduler/scheduler.py",
+      "parent": null,
+      "deps": ["LB-012", "LB-015", "LB-018", "LB-039"],
+      "doc": "docs/device-capabilities.md",
+      "done_at": "2026-11-12",
+      "must": "기존 예약 레코드 호환을 위해 cleaning_type 기본값(mopAfterVacuum)과 SQLite ALTER TABLE 마이그레이션을 지원한다. 구역 선택 금지 규칙은 유지한다. 기기 API에서 확인된 값(vacuum, mop, vacuumAndMopTogether, mopAfterVacuum)만 허용한다.",
+      "memo": "[2026-11-12] cleaning_type(vacuum, mop, vacuumAndMopTogether, mopAfterVacuum) 모델·스키마·마이그레이션·검증기·서비스·클라이언트·스케줄러 연동 완료. vacuum 시 물걸레 카운트 제외 및 타 방식 정상 카운트 검증. 84개 테스트 통과, ruff/mypy/compileall 통과. code_reviewer 독립 검증 PASS 확인."
+    },
+    {
+      "id": "LB-058",
+      "reqs": ["REQ-001", "REQ-002", "REQ-003"],
+      "status": "done",
+      "priority": "나중",
+      "category": "1회성예약",
+      "title": "안드로이드 예약 생성·수정·목록 화면에 청소 방식(먼지청소·물청소·먼지+물청소) 선택 및 표시 추가",
+      "done_when": "예약 추가 및 수정 화면에서 먼지청소, 물청소, 먼지 + 물청소를 선택해 저장할 수 있고, 예약 목록과 확인 화면에 선택된 청소 방식이 한글로 표시된다",
+      "where": "android/app/src/main/res/layout/activity_create_reservation.xml, android/app/src/main/res/layout/item_reservation.xml, android/app/src/main/java/com/smartthings/cleaner/CreateReservationActivity.kt, android/app/src/main/java/com/smartthings/cleaner/ReservationListActivity.kt, android/app/src/main/java/com/smartthings/cleaner/model/ReservationItem.kt, android/app/src/main/java/com/smartthings/cleaner/network/ServerClient.kt",
+      "parent": null,
+      "deps": ["LB-049", "LB-057"],
+      "doc": "docs/device-capabilities.md",
+      "done_at": "2026-11-12",
+      "must": "기존 달력+시간 휠 피커, 과거 시각 차단, 쉬는 기간 경고 흐름을 유지한다. 수정 화면에서는 기존 예약의 청소 방식이 기본 선택 상태로 열린다.",
+      "memo": "[2026-11-12] CreateReservationActivity 및 ReservationListActivity에 MaterialButtonToggleGroup 3종(먼지청소 vacuum, 물청소 mop, 먼지 + 물청소 mopAfterVacuum) 선택/수정/한글표시 연동 완료. D-03 제약 준수. Gradle testDebugUnitTest(36/36) 및 Python 테스트(47/47) 통과. code_reviewer 독립 검증 PASS 확인."
+    },
+    {
+      "id": "LB-059",
+      "reqs": ["REQ-019", "REQ-020", "REQ-021"],
+      "status": "done",
+      "priority": "나중",
+      "category": "물관리",
+      "title": "모든 경로(이 앱·스마트싱스·본체) 물청소 세션 자동 감지 카운트 및 물 채움 시 기준 횟수(N) 자동 보정 서버 지원",
+      "done_when": "어디서 시작한 청소든 기기의 cleaningType(mop, vacuumAndMopTogether, mopAfterVacuum) 또는 washingMop 상태가 감지되면 청소 세션당 1회씩 mop_clean_count가 자동 증가(먼지청소 단독 및 쉬는 기간 즉시 정지 제외)하고, POST /api/water-tracker/refill 호출 시 calibrate_threshold=true 이면 직전 횟수(K>=1)를 기반으로 alert_threshold_n이 max(1, K-1)로 자동 갱신된 뒤 횟수가 0으로 초기화된다",
+      "where": "server/water/service.py, server/scheduler/scheduler.py, server/smartthings/client.py, server/server.py",
+      "parent": null,
+      "deps": ["LB-038", "LB-039", "LB-057"],
+      "doc": "docs/device-capabilities.md",
+      "done_at": "2026-11-12",
+      "must": "한 번의 청소 세션(중간 걸레 세척 포함)에서 중복 카운트되지 않아야 하며, 이 앱의 1회성 예약 실행 성공 판정과도 중복 카운트되지 않게 일원화한다. K==0 일 때는 calibrate_threshold 요청이 와도 기존 alert_threshold_n을 유지한다.",
+      "memo": "[2026-11-12] WaterSessionTracker(모든 경로 물청소 세션 자동 감지, 중간 washingMop 중복 방지, 1회성 예약 중복 방지 일원화, vacuum 및 autostop 제외) 및 POST /api/water-tracker/refill(calibrate_threshold=true 시 N=max(1, K-1) 보정 및 K=0 유지) 구현 완료. 295개 전체 테스트 및 ruff/mypy 통과. code_reviewer 독립 검증 PASS 확인."
+    },
+    {
+      "id": "LB-060",
+      "reqs": ["REQ-019", "REQ-021"],
+      "status": "done",
+      "priority": "나중",
+      "category": "물관리",
+      "title": "안드로이드 물 채움 확인 대화상자에 '물 부족으로 채움(기준 N 자동 보정)' 선택 기능 추가",
+      "done_when": "홈 화면과 물 관리 화면에서 '물 채움' 버튼을 누르면 확인 대화상자에서 일반 물 채움(횟수만 0 초기화)과 물 부족으로 채움(직전 청소 횟수 K 기준 알림 기준 N = max(1, K-1) 자동 보정 후 0 초기화)을 선택해 실행할 수 있고, 결과 화면에 갱신된 기준 N과 초기화된 횟수(0회)가 반영된다",
+      "where": "android/app/src/main/java/com/smartthings/cleaner/RefillConfirmDialog.kt, android/app/src/main/java/com/smartthings/cleaner/WaterManagementActivity.kt, android/app/src/main/java/com/smartthings/cleaner/HomeActivity.kt, android/app/src/main/java/com/smartthings/cleaner/network/ServerClient.kt, android/app/src/main/res/values/strings.xml",
+      "parent": null,
+      "deps": ["LB-053", "LB-059"],
+      "doc": "docs/device-capabilities.md",
+      "done_at": "2026-11-12",
+      "must": "기존 취소 동작(LB-053: 취소 시 아무 요청도 보내지 않음)을 유지하고, 현재 누적 청소 횟수가 1회 이상일 때 보정될 기준값(max(1, K-1)회)을 대화상자 안내 문구에 표시한다.",
+      "memo": "[2026-11-12] RefillConfirmDialog에 일반 채움(0 초기화) 및 물 부족으로 채움(N=max(1, K-1) 자동 보정 후 0 초기화) 선택 기능, 취소 불변조건 유지, HomeActivity 및 WaterManagementActivity 결과 화면 갱신 연동 완료. Gradle 39개 단위 테스트 및 Python 39개 테스트 통과. code_reviewer 독립 검증 PASS 확인."
     }
   ]
 }

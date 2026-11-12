@@ -7,7 +7,15 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from server.models import STATUS_FAILED, STATUS_MISSED, STATUS_SCHEDULED, STATUS_SUCCESS, Reservation
+from server.models import (
+    CLEANING_TYPE_VACUUM,
+    DEFAULT_CLEANING_TYPE,
+    STATUS_FAILED,
+    STATUS_MISSED,
+    STATUS_SCHEDULED,
+    STATUS_SUCCESS,
+    Reservation,
+)
 from server.off_periods.auto_stop import is_cleaner_cleaning as _is_cleaner_cleaning
 from server.scheduler.logger import DEFAULT_SCHEDULER_LOG_FILE, get_scheduler_logger
 from server.smartthings.auth import SmartThingsTokenManager, TokenInfo, resolve_credential
@@ -20,6 +28,7 @@ if TYPE_CHECKING:
     from server.off_periods.auto_stop import AutoStopWatcher
     from server.off_periods.dnd_sync import DndSyncManager
     from server.water.service import WaterService
+    from server.water.session_tracker import WaterSessionTracker
 
 DEFAULT_DEVICE_ID = "03431570-5acf-f89e-7b39-275ce15d3258"
 MISSED_THRESHOLD = timedelta(minutes=5)
@@ -58,6 +67,7 @@ class ReservationScheduler:
         auto_stop_watcher: AutoStopWatcher | None = None,
         water_service: WaterService | None = None,
         dnd_sync_manager: DndSyncManager | None = None,
+        water_session_tracker: WaterSessionTracker | None = None,
     ) -> None:
         self.storage = storage
         self.log_file = Path(log_file)
@@ -67,32 +77,20 @@ class ReservationScheduler:
         self.poll_interval = max(0.05, float(poll_interval))
         self.now_func = now_func
         self.notification_service = notification_service
-        if dnd_sync_manager is not None:
-            self.dnd_sync_manager = dnd_sync_manager
-        else:
-            from server.off_periods.dnd_sync import DndSyncManager
-            self.dnd_sync_manager = DndSyncManager(
-                storage=self.storage, client=self.client, device_id=self.device_id,
-            )
-        if auto_stop_watcher is not None:
-            self.auto_stop_watcher = auto_stop_watcher
-        else:
-            from server.off_periods.auto_stop import AutoStopWatcher
-            self.auto_stop_watcher = AutoStopWatcher(
-                storage=self.storage,
-                client=self.client,
-                device_id=self.device_id,
-                notification_service=self.notification_service,
-                now_func=self.now_func,
-            )
-        if water_service is not None:
-            self.water_service = water_service
-        else:
-            from server.water.service import WaterService
-            self.water_service = WaterService(
-                storage=self.storage,
-                notification_service=self.notification_service,
-            )
+
+        from server.off_periods.auto_stop import AutoStopWatcher
+        from server.off_periods.dnd_sync import DndSyncManager
+        from server.water.service import WaterService
+        from server.water.session_tracker import WaterSessionTracker
+
+        self.dnd_sync_manager = dnd_sync_manager or DndSyncManager(self.storage, self.client, self.device_id)
+        self.auto_stop_watcher = auto_stop_watcher or AutoStopWatcher(
+            self.storage, self.client, self.device_id, self.notification_service, self.now_func
+        )
+        self.water_service = water_service or WaterService(self.storage, self.notification_service)
+        self.water_session_tracker = water_session_tracker or WaterSessionTracker(
+            self.storage, self.water_service, self.client, self.device_id, self.auto_stop_watcher, self.now_func
+        )
 
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
@@ -156,6 +154,9 @@ class ReservationScheduler:
                         r.id, format_kst(r.reserved_at), self.device_id,
                     )
                     try:
+                        ct = getattr(r, "cleaning_type", DEFAULT_CLEANING_TYPE)
+                        if hasattr(self.client, "set_cleaning_type") and callable(self.client.set_cleaning_type):
+                            self.client.set_cleaning_type(self.device_id, ct)
                         res = self.client.start_cleaning(self.device_id)
                         self.logger.info(
                             "청소 시작 명령 전송 성공: res_id=%s, reserved_at=%s, device_id=%s, result=%s",
@@ -192,12 +193,14 @@ class ReservationScheduler:
             except Exception as e:
                 self.logger.exception("자동 정지 워처 실행 중 오류 발생: %s", e)
 
-        if (
-            self.water_service is not None
-            and self.water_service.notification_service is None
-            and self.notification_service is not None
-        ):
+        if self.water_service is not None and self.water_service.notification_service is None:
             self.water_service.notification_service = self.notification_service
+
+        if self.water_session_tracker is not None:
+            try:
+                self.water_session_tracker.step(now)
+            except Exception as e:
+                self.logger.exception("물청소 세션 트래커 실행 중 오류: %s", e)
 
         return executed
 
@@ -222,39 +225,27 @@ class ReservationScheduler:
                     health = "OFFLINE"
 
         reason = parse_failure_reason(device_status, health_state=health, fallback_unknown=True)
-        r.status = STATUS_FAILED
-        r.failure_reason = reason or r.failure_reason or "원인 미확인"
+        r.status, r.failure_reason, r.updated_at = STATUS_FAILED, (reason or r.failure_reason or "원인 미확인"), now
         r.last_device_state = getattr(device_status, "operating_state", None) if device_status else None
-        r.updated_at = now
         self.storage.save_reservation(r)
-        self.logger.warning(
-            "청소 시작 확인 실패: res_id=%s, reserved_at=%s, failure_reason=%s, last_device_state=%s",
-            r.id, format_kst(r.reserved_at), r.failure_reason, r.last_device_state,
-        )
+        self.logger.warning("청소 시작 확인 실패: res_id=%s, failure_reason=%s", r.id, r.failure_reason)
 
         if self.notification_service is not None:
-            title = "[로봇청소기] 청소 실패"
-            body = f"예약 청소가 시작되지 않았습니다: {r.failure_reason}"
+            title, body = "[로봇청소기] 청소 실패", f"예약 청소가 시작되지 않았습니다: {r.failure_reason}"
             data = {"type": "cleaning_failed", "reservation_id": r.id, "failure_reason": r.failure_reason or ""}
             try:
                 send_fn = getattr(self.notification_service, "send_to_all", None) or getattr(
                     self.notification_service, "send_multicast", None
                 )
                 if callable(send_fn):
-                    res = send_fn(title=title, body=body, data=data)
-                    self.logger.info(
-                        "청소 실패 알림 발송 완료: res_id=%s, targets=%d, success=%d, failure=%d",
-                        r.id, getattr(res, "total_targets", 0), getattr(res, "success_count", 0),
-                        getattr(res, "failure_count", 0),
-                    )
+                    send_fn(title=title, body=body, data=data)
             except Exception as e:
                 self.logger.error("실패 푸시 알림 발송 중 오류: res_id=%s, error=%s", r.id, e)
 
     def _check_and_mark_success(self, r: Reservation, now: datetime) -> bool:
         """기기 상태를 조회하여 청소 중 상태이면 '성공'으로 상태를 갱신한다 (REQ-007, D-10)."""
-        if not hasattr(self.client, "get_device_status") or not callable(
-            getattr(self.client, "get_device_status", None)
-        ):
+        get_status_fn = getattr(self.client, "get_device_status", None)
+        if not callable(get_status_fn):
             return False
 
         try:
@@ -268,18 +259,22 @@ class ReservationScheduler:
 
         if _is_cleaner_cleaning(status):
             op_state = getattr(status, "operating_state", None) or "cleaning"
-            r.status = STATUS_SUCCESS
-            r.last_device_state = str(op_state)
-            r.updated_at = now
+            r.status, r.last_device_state, r.updated_at = STATUS_SUCCESS, str(op_state), now
             self.storage.save_reservation(r)
-            if self.water_service is not None:
+            if self.water_session_tracker is not None:
                 try:
-                    self.water_service.record_mop_clean(is_mop=True)
+                    self.water_session_tracker.notify_reservation_success(r.id, getattr(r, "cleaning_type", None), now)
+                except Exception as e:
+                    self.logger.warning("물청소 세션 트래커 알림 실패: %s", e)
+            elif self.water_service is not None:
+                try:
+                    is_mop = getattr(r, "cleaning_type", DEFAULT_CLEANING_TYPE) != CLEANING_TYPE_VACUUM
+                    self.water_service.record_mop_clean(is_mop=is_mop)
                 except Exception as e:
                     self.logger.warning("물걸레 청소 횟수 기록 실패: %s", e)
             self.logger.info(
-                "청소 시작 확인 완료 (성공): res_id=%s, reserved_at=%s, device_id=%s, state=%s, confirmed_at=%s",
-                r.id, format_kst(r.reserved_at), self.device_id, r.last_device_state, format_kst(now),
+                "청소 시작 확인 완료 (성공): res_id=%s, reserved_at=%s, state=%s",
+                r.id, format_kst(r.reserved_at), r.last_device_state,
             )
             return True
         return False

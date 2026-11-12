@@ -11,7 +11,8 @@ sealed class UpdateReservationResult {
         val id: String,
         val scheduledAt: String,
         val status: String,
-        val message: String = "예약이 수정되었습니다"
+        val message: String = "예약이 수정되었습니다",
+        val cleaningType: String = ReservationItem.CLEANING_TYPE_DEFAULT
     ) : UpdateReservationResult()
 
     data class Failure(

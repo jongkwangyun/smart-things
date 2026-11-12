@@ -9,6 +9,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.button.MaterialButtonToggleGroup
 import com.google.android.material.card.MaterialCardView
 import com.smartthings.cleaner.model.*
 import com.smartthings.cleaner.network.ServerClient
@@ -41,7 +42,9 @@ class CreateReservationActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_PICK_ONLY = "EXTRA_PICK_ONLY"
         const val EXTRA_SCHEDULED_AT = "EXTRA_SCHEDULED_AT"
+        const val EXTRA_CLEANING_TYPE = "EXTRA_CLEANING_TYPE"
         const val RESULT_SCHEDULED_AT = "RESULT_SCHEDULED_AT"
+        const val RESULT_CLEANING_TYPE = "RESULT_CLEANING_TYPE"
         val KST_ZONE: ZoneId = ZoneId.of("Asia/Seoul")
         val DISPLAY_FORMATTER: DateTimeFormatter =
             DateTimeFormatter.ofPattern("yyyy년 MM월 dd일 HH:mm ('KST')", Locale.KOREAN)
@@ -77,6 +80,7 @@ class CreateReservationActivity : AppCompatActivity() {
     private val serverClient = ServerClient()
 
     private lateinit var picker: DateTimeWheelPicker
+    private lateinit var toggleGroupCleaningType: MaterialButtonToggleGroup
     private var pickOnly = false
 
     private lateinit var cardValidationWarning: MaterialCardView
@@ -108,19 +112,31 @@ class CreateReservationActivity : AppCompatActivity() {
         picker.onValueChanged = { updateDateTimePreview() }
         pickOnly = intent.getBooleanExtra(EXTRA_PICK_ONLY, false)
 
-        cardValidationWarning = findViewById(R.id.cardValidationWarning)
-        textValidationMessage = findViewById(R.id.textValidationMessage)
+        toggleGroupCleaningType = findViewById(R.id.toggleGroupCleaningType)
+        val initialType = intent.getStringExtra(EXTRA_CLEANING_TYPE) ?: ReservationItem.CLEANING_TYPE_DEFAULT
+        setSelectedCleaningType(initialType)
 
-        cardConfirmation = findViewById(R.id.cardConfirmation)
-        textConfirmationMessage = findViewById(R.id.textConfirmationMessage)
-        textConfirmationDetail = findViewById(R.id.textConfirmationDetail)
-
-        btnSaveReservation = findViewById(R.id.btnSaveReservation)
-        progressBarSave = findViewById(R.id.progressBarSave)
-        btnCancel = findViewById(R.id.btnCancel)
+        cardValidationWarning = findViewById(R.id.cardValidationWarning); textValidationMessage = findViewById(R.id.textValidationMessage)
+        cardConfirmation = findViewById(R.id.cardConfirmation); textConfirmationMessage = findViewById(R.id.textConfirmationMessage); textConfirmationDetail = findViewById(R.id.textConfirmationDetail)
+        btnSaveReservation = findViewById(R.id.btnSaveReservation); progressBarSave = findViewById(R.id.progressBarSave); btnCancel = findViewById(R.id.btnCancel)
 
         btnSaveReservation.setOnClickListener { performSaveReservation() }
         btnCancel.setOnClickListener { finish() }
+    }
+
+    fun getSelectedCleaningType(): String = when (toggleGroupCleaningType.checkedButtonId) {
+        R.id.btnCleaningVacuum -> ReservationItem.CLEANING_TYPE_VACUUM
+        R.id.btnCleaningMop -> ReservationItem.CLEANING_TYPE_MOP
+        else -> ReservationItem.CLEANING_TYPE_MOP_AFTER_VACUUM
+    }
+
+    fun setSelectedCleaningType(cleaningType: String) {
+        val btnId = when (cleaningType) {
+            ReservationItem.CLEANING_TYPE_VACUUM -> R.id.btnCleaningVacuum
+            ReservationItem.CLEANING_TYPE_MOP -> R.id.btnCleaningMop
+            else -> R.id.btnCleaningMopAfterVacuum
+        }
+        toggleGroupCleaningType.check(btnId)
     }
 
     private fun setDefaultDateTime() {
@@ -165,7 +181,10 @@ class CreateReservationActivity : AppCompatActivity() {
         }
 
         if (pickOnly) {
-            setResult(RESULT_OK, Intent().putExtra(RESULT_SCHEDULED_AT, formatIsoKst(zdt)))
+            setResult(RESULT_OK, Intent().apply {
+                putExtra(RESULT_SCHEDULED_AT, formatIsoKst(zdt))
+                putExtra(RESULT_CLEANING_TYPE, getSelectedCleaningType())
+            })
             finish()
             return
         }
@@ -183,32 +202,28 @@ class CreateReservationActivity : AppCompatActivity() {
             val offPeriodsRes = serverClient.fetchOffPeriods(serverUrl, sharedSecret)
             val offPeriods = if (offPeriodsRes is FetchOffPeriodsResult.Success) offPeriodsRes.offPeriods else emptyList()
             val insideOffPeriod = isDateTimeInOffPeriods(zdt, offPeriods)
+            val cleaningType = getSelectedCleaningType()
 
             withContext(Dispatchers.Main) {
                 if (insideOffPeriod) {
                     setSaving(false)
                     showOffPeriodWarningDialog(
-                        onConfirm = { executeCreateReservation(serverUrl, sharedSecret, zdt, true) },
+                        onConfirm = { executeCreateReservation(serverUrl, sharedSecret, zdt, true, cleaningType) },
                         onCancel = { /* 취소: 저장하지 않음 (Done When) */ }
                     )
                 } else {
-                    executeCreateReservation(serverUrl, sharedSecret, zdt, false)
+                    executeCreateReservation(serverUrl, sharedSecret, zdt, false, cleaningType)
                 }
             }
         }
     }
 
     fun showOffPeriodWarningDialog(onConfirm: () -> Unit, onCancel: () -> Unit = {}) {
-        AlertDialog.Builder(this)
-            .setTitle(getString(R.string.title_off_period_warning))
+        AlertDialog.Builder(this).setTitle(getString(R.string.title_off_period_warning))
             .setMessage(getString(R.string.msg_off_period_reservation_warning))
             .setPositiveButton(getString(R.string.btn_ok)) { _, _ -> onConfirm() }
-            .setNegativeButton(getString(R.string.btn_cancel)) { dialog, _ ->
-                dialog.dismiss()
-                onCancel()
-            }
-            .setCancelable(false)
-            .show()
+            .setNegativeButton(getString(R.string.btn_cancel)) { dialog, _ -> dialog.dismiss(); onCancel() }
+            .setCancelable(false).show()
     }
 
     private fun executeCreateReservation(
@@ -216,11 +231,12 @@ class CreateReservationActivity : AppCompatActivity() {
         sharedSecret: String,
         zdt: ZonedDateTime,
         allowDuringOffPeriod: Boolean,
+        cleaningType: String = getSelectedCleaningType()
     ) {
         setSaving(true)
         lifecycleScope.launch(Dispatchers.IO) {
             val isoString = formatIsoKst(zdt)
-            val result = serverClient.createReservation(serverUrl, sharedSecret, isoString, allowDuringOffPeriod)
+            val result = serverClient.createReservation(serverUrl, sharedSecret, isoString, allowDuringOffPeriod, cleaningType)
             withContext(Dispatchers.Main) {
                 setSaving(false)
                 when (result) {
@@ -228,8 +244,9 @@ class CreateReservationActivity : AppCompatActivity() {
                         cardValidationWarning.visibility = View.GONE
                         cardConfirmation.visibility = View.VISIBLE
                         textConfirmationMessage.text = getString(R.string.msg_confirm_reservation_created)
+                        val typeLabel = ReservationItem.cleaningTypeToLabel(cleaningType)
                         textConfirmationDetail.text =
-                            "예약 ID: ${result.id}\n상태: ${result.status}\n일시: ${result.scheduledAt}"
+                            "예약 ID: ${result.id}\n상태: ${result.status}\n일시: ${result.scheduledAt}\n청소 방식: $typeLabel"
                         showConfirmationDialog(getString(R.string.msg_confirm_reservation_created))
                     }
                     is CreateReservationResult.Failure -> {
@@ -244,25 +261,15 @@ class CreateReservationActivity : AppCompatActivity() {
 
     private fun setSaving(isSaving: Boolean) {
         btnSaveReservation.isEnabled = !isSaving
-        btnSaveReservation.text = if (isSaving) {
-            getString(R.string.btn_saving_reservation)
-        } else {
-            getString(R.string.btn_save_reservation)
-        }
+        btnSaveReservation.text = if (isSaving) getString(R.string.btn_saving_reservation) else getString(R.string.btn_save_reservation)
         progressBarSave.visibility = if (isSaving) View.VISIBLE else View.GONE
         picker.isEnabled = !isSaving
+        toggleGroupCleaningType.isEnabled = !isSaving
     }
 
     private fun showConfirmationDialog(message: String) {
-        AlertDialog.Builder(this)
-            .setTitle(getString(R.string.title_confirm))
-            .setMessage(message)
-            .setPositiveButton(getString(R.string.btn_ok)) { dialog, _ ->
-                dialog.dismiss()
-                setResult(RESULT_OK)
-                finish()
-            }
-            .setCancelable(false)
-            .show()
+        AlertDialog.Builder(this).setTitle(getString(R.string.title_confirm)).setMessage(message)
+            .setPositiveButton(getString(R.string.btn_ok)) { dialog, _ -> dialog.dismiss(); setResult(RESULT_OK); finish() }
+            .setCancelable(false).show()
     }
 }

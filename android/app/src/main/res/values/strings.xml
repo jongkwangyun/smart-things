@@ -53,6 +53,13 @@
     <string name="btn_ok">확인</string>
     <string name="btn_cancel">취소</string>
 
+    <!-- LB-058 청소 방식 선택 리소스 (REQ-001, REQ-002, REQ-003) -->
+    <string name="label_cleaning_type">청소 방식</string>
+    <string name="cleaning_type_vacuum">먼지청소</string>
+    <string name="cleaning_type_mop">물청소</string>
+    <string name="cleaning_type_mop_after_vacuum">먼지 + 물청소</string>
+    <string name="format_cleaning_type">청소 방식: %1$s</string>
+
     <!-- LB-014 1회성 예약 목록 리소스 -->
     <string name="title_reservation_list">예약 목록</string>
     <string name="subtitle_reservation_list">예정된 예약과 지난 예약 내역을 확인합니다.</string>
@@ -129,6 +136,11 @@
     <string name="dialog_title_confirm_refill">물 채움을 기록할까요?</string>
     <string name="dialog_msg_confirm_refill">물 채움은 청소 횟수 0회 초기화이며 되돌릴 수 없습니다. 물통에 물을 실제로 채웠을 때만 확인을 눌러 주세요.</string>
     <string name="btn_refill_confirm">물 채움 기록</string>
+    <string name="dialog_msg_confirm_refill_calibration_guide">현재 청소 횟수는 %1$d회입니다. 물 부족으로 채우면 다음 알림 기준이 %2$d회로 자동 보정됩니다.\n\n어떤 방식으로 채우시겠습니까?</string>
+    <string name="btn_refill_with_calibration">물 부족으로 채움 (%1$d회 보정)</string>
+    <string name="btn_refill_with_calibration_simple">물 부족으로 채움</string>
+    <string name="btn_refill_normal">일반 채움</string>
+    <string name="msg_confirm_water_refilled_calibrated">물 채움이 기록되었습니다 (기준 %1$d회 보정, 횟수 0회 초기화)</string>
     <string name="msg_loading_water_tracker">물 관리 정보를 불러오는 중…</string>
     <string name="text_count_times">%1$d회</string>
     <string name="text_alert_threshold_format">%1$d회 (도달 시 푸시 알림)</string>
@@ -162,4 +174,7 @@
     <string name="tile_off_period">쉬는 기간</string>
     <string name="tile_off_period_desc">청소하지 않을 기간을 등록하고 확인합니다</string>
     <string name="home_water_summary">물 채운 뒤 청소 %1$d / 기준 %2$d회</string>
+    <!-- LB-056 Tailscale 미연결 안내 (REQ-025) -->
+    <string name="tailscale_warning_title">Tailscale 미연결</string>
+    <string name="msg_tailscale_vpn_disconnected">Tailscale이 연결되어 있지 않습니다. Tailscale 앱을 실행하고 연결을 켠 뒤 다시 시도해 주세요.</string>
 </resources>

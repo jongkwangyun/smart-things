@@ -4,6 +4,7 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
+from server.models import DEFAULT_CLEANING_TYPE, VALID_CLEANING_TYPES
 from server.time_utils import format_kst, is_minute_precision, now_kst, parse_kst
 
 # D-03: 청소 모드·구역 선택 없음, 기본 전체 청소
@@ -100,10 +101,19 @@ def validate_reservation_create_payload(
     if not isinstance(allow_off, bool):
         raise ReservationValidationError("'allow_during_off_period' 필드는 boolean이어야 합니다.")
 
+    # 8. cleaning_type 검증 (선택, 기본 mopAfterVacuum)
+    cleaning_type = payload.get("cleaning_type", DEFAULT_CLEANING_TYPE)
+    if not isinstance(cleaning_type, str) or cleaning_type not in VALID_CLEANING_TYPES:
+        allowed = ", ".join(sorted(VALID_CLEANING_TYPES))
+        raise ReservationValidationError(
+            f"유효하지 않은 청소 방식입니다: {cleaning_type}. 허용 값: {allowed}"
+        )
+
     return {
         "id": res_id,
         "reserved_at": dt,
         "allow_during_off_period": allow_off,
+        "cleaning_type": cleaning_type,
     }
 
 
@@ -165,6 +175,15 @@ def validate_reservation_update_payload(
         if not isinstance(allow_off, bool):
             raise ReservationValidationError("'allow_during_off_period' 필드는 boolean이어야 합니다.")
         result["allow_during_off_period"] = allow_off
+
+    if "cleaning_type" in payload:
+        cleaning_type = payload["cleaning_type"]
+        if not isinstance(cleaning_type, str) or cleaning_type not in VALID_CLEANING_TYPES:
+            allowed = ", ".join(sorted(VALID_CLEANING_TYPES))
+            raise ReservationValidationError(
+                f"유효하지 않은 청소 방식입니다: {cleaning_type}. 허용 값: {allowed}"
+            )
+        result["cleaning_type"] = cleaning_type
 
     return result
 

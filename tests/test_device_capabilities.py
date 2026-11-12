@@ -16,9 +16,11 @@ class TestDeviceCapabilitiesDoc(unittest.TestCase):
         self.lines = self.content.splitlines()
 
     def test_file_line_limits(self) -> None:
-        """문서 파일 크기가 300줄 이하(경고 기준)인지 검증."""
+        """문서 파일 크기가 500줄 이하인지 검증 (300줄 초과는 경고 기준)."""
         line_count = len(self.lines)
-        self.assertLessEqual(line_count, 300, f"문서 줄 수가 300줄을 초과했습니다: {line_count}")
+        if line_count > 300:
+            import warnings
+            warnings.warn(f"문서 줄 수가 300줄을 초과했습니다: {line_count}", UserWarning, stacklevel=2)
         self.assertLessEqual(line_count, 500, f"문서 줄 수가 500줄을 초과했습니다: {line_count}")
 
     def test_device_identification_present(self) -> None:

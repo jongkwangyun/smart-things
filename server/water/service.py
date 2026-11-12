@@ -25,10 +25,20 @@ class WaterService:
         """현재 물 추적 상태를 반환한다."""
         return self.storage.get_water_tracker(tracker_id)
 
-    def refill_water(self, tracker_id: str = "default") -> WaterTracker:
-        """물 채움을 기록하고 물걸레 청소 횟수를 0으로 초기화한다 (REQ-019, D-14)."""
+    def refill_water(
+        self,
+        tracker_id: str = "default",
+        calibrate_threshold: bool = False,
+    ) -> WaterTracker:
+        """물 채움을 기록하고 물걸레 청소 횟수를 0으로 초기화한다 (REQ-019, D-14).
+
+        calibrate_threshold=True 이면 직전 횟수 K(>=1)를 바탕으로
+        alert_threshold_n을 max(1, K - 1)로 자동 보정한다. K==0이면 기존 N 유지.
+        """
         tracker = self.storage.get_water_tracker(tracker_id)
         now = now_kst()
+        if calibrate_threshold and tracker.mop_clean_count >= 1:
+            tracker.alert_threshold_n = max(1, tracker.mop_clean_count - 1)
         tracker.mop_clean_count = 0
         tracker.last_refilled_at = now
         tracker.updated_at = now

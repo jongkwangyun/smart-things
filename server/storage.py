@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from server.models import (
+    DEFAULT_CLEANING_TYPE,
     AutoStopEvent,
     NotificationTarget,
     OffPeriod,
@@ -33,38 +34,37 @@ class Storage:
 
     def _init_db(self) -> None:
         with self._lock:
-            self._conn.execute("PRAGMA journal_mode=WAL;")
-            self._conn.execute("PRAGMA foreign_keys=ON;")
+            self._conn.executescript("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")
             self._conn.executescript(INIT_SCHEMA_SQL)
-            try:
-                self._conn.execute("ALTER TABLE reservations ADD COLUMN executed_at TEXT;")
-            except sqlite3.OperationalError:
-                pass
+            for col_def in (
+                "executed_at TEXT",
+                "cleaning_type TEXT NOT NULL DEFAULT 'mopAfterVacuum'",
+            ):
+                try:
+                    self._conn.execute(f"ALTER TABLE reservations ADD COLUMN {col_def};")
+                except sqlite3.OperationalError:
+                    pass
             self._conn.commit()
 
     # --- Reservation ---
     def save_reservation(self, res: Reservation) -> Reservation:
         sql = """
             INSERT INTO reservations (
-                id, reserved_at, status, allow_during_off_period,
+                id, reserved_at, status, allow_during_off_period, cleaning_type,
                 failure_reason, last_device_state, created_at, updated_at, executed_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 reserved_at=excluded.reserved_at, status=excluded.status,
                 allow_during_off_period=excluded.allow_during_off_period,
-                failure_reason=excluded.failure_reason,
+                cleaning_type=excluded.cleaning_type, failure_reason=excluded.failure_reason,
                 last_device_state=excluded.last_device_state, updated_at=excluded.updated_at,
                 executed_at=excluded.executed_at;
         """
         vals = (
-            res.id,
-            format_kst(res.reserved_at),
-            res.status,
-            1 if res.allow_during_off_period else 0,
-            res.failure_reason,
-            res.last_device_state,
-            format_kst(res.created_at),
-            format_kst(res.updated_at),
+            res.id, format_kst(res.reserved_at), res.status,
+            1 if res.allow_during_off_period else 0, res.cleaning_type,
+            res.failure_reason, res.last_device_state,
+            format_kst(res.created_at), format_kst(res.updated_at),
             format_kst(res.executed_at) if res.executed_at else None,
         )
         with self._lock:
@@ -91,11 +91,17 @@ class Storage:
     def _row_to_reservation(self, row: sqlite3.Row) -> Reservation:
         row_keys = row.keys()
         exec_at = parse_kst(row["executed_at"]) if ("executed_at" in row_keys and row["executed_at"]) else None
+        cleaning_type = (
+            str(row["cleaning_type"])
+            if ("cleaning_type" in row_keys and row["cleaning_type"])
+            else DEFAULT_CLEANING_TYPE
+        )
         return Reservation(
             id=row["id"],
             reserved_at=parse_kst(row["reserved_at"]),
             status=row["status"],
             allow_during_off_period=bool(row["allow_during_off_period"]),
+            cleaning_type=cleaning_type,
             failure_reason=row["failure_reason"],
             last_device_state=row["last_device_state"],
             created_at=parse_kst(row["created_at"]),
@@ -150,10 +156,7 @@ class Storage:
                 occurred_at=excluded.occurred_at, off_period_id=excluded.off_period_id,
                 success=excluded.success, details=excluded.details;
         """
-        vals = (
-            event.id, format_kst(event.occurred_at), event.off_period_id,
-            1 if event.success else 0, event.details,
-        )
+        vals = (event.id, format_kst(event.occurred_at), event.off_period_id, 1 if event.success else 0, event.details)
         with self._lock:
             self._conn.execute(sql, vals)
             self._conn.commit()
@@ -197,8 +200,7 @@ class Storage:
         vals = (
             tracker.id,
             format_kst(tracker.last_refilled_at) if tracker.last_refilled_at else None,
-            tracker.mop_clean_count,
-            tracker.alert_threshold_n,
+            tracker.mop_clean_count, tracker.alert_threshold_n,
             format_kst(tracker.last_alerted_at) if tracker.last_alerted_at else None,
             format_kst(tracker.updated_at),
         )

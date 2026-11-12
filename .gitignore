@@ -22,3 +22,9 @@ server/deploy/task_instance.xml
 
 smartthings.exe
 *.exe
+
+docs/server-access.md
+
+.gradle/
+build/
+scratch/

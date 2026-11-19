@@ -175,10 +175,11 @@ class OffPeriodListActivity : AppCompatActivity() {
     }
 
     fun renderOffPeriods(items: List<OffPeriodItem>) {
-        textListHeader.text = getString(R.string.section_off_periods_header) + " (${items.size}건)"
+        val sortedItems = ListDisplayLogic.sortOffPeriodsDescending(items)
+        textListHeader.text = getString(R.string.section_off_periods_header) + " (${sortedItems.size}건)"
         layoutOffPeriodList.removeAllViews()
 
-        if (items.isEmpty()) {
+        if (sortedItems.isEmpty()) {
             textEmptyList.visibility = View.VISIBLE
             layoutOffPeriodList.visibility = View.GONE
         } else {
@@ -186,7 +187,7 @@ class OffPeriodListActivity : AppCompatActivity() {
             layoutOffPeriodList.visibility = View.VISIBLE
 
             val inflater = LayoutInflater.from(this)
-            for (item in items) {
+            for (item in sortedItems) {
                 val itemView = inflater.inflate(R.layout.item_off_period, layoutOffPeriodList, false)
                 bindItemView(itemView, item)
                 layoutOffPeriodList.addView(itemView)
@@ -195,6 +196,11 @@ class OffPeriodListActivity : AppCompatActivity() {
     }
 
     fun bindItemView(view: View, item: OffPeriodItem) {
+        val cardItem = view.findViewById<MaterialCardView?>(R.id.cardOffPeriodItem) ?: (view as? MaterialCardView)
+        val isPast = ListDisplayLogic.isPastOffPeriod(item)
+        cardItem?.setCardBackgroundColor(ContextCompat.getColor(this, if (isPast) R.color.surface_past else R.color.surface))
+        cardItem?.strokeColor = ContextCompat.getColor(this, if (isPast) R.color.border_past else R.color.border_color)
+
         val textOffPeriodId = view.findViewById<TextView>(R.id.textOffPeriodId)
         val cardStatusBadge = view.findViewById<MaterialCardView>(R.id.cardStatusBadge)
         val textStatusBadge = view.findViewById<TextView>(R.id.textStatusBadge)

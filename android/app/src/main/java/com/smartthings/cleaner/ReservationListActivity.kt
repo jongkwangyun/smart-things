@@ -52,7 +52,7 @@ class ReservationListActivity : AppCompatActivity() {
         }
 
         fun partitionReservations(reservations: List<ReservationItem>): Pair<List<ReservationItem>, List<ReservationItem>> =
-            Pair(reservations.filter { it.isUpcoming() }, reservations.filter { !it.isUpcoming() })
+            ListDisplayLogic.partitionAndSortReservations(reservations)
 
         fun formatFailureReasonText(reason: String?, lastDeviceState: String?): String = when {
             !reason.isNullOrBlank() && reason != "원인 미확인" -> "실패 이유: $reason"
@@ -156,6 +156,11 @@ class ReservationListActivity : AppCompatActivity() {
     }
 
     fun bindItemView(view: View, item: ReservationItem) {
+        val cardItem = view.findViewById<MaterialCardView?>(R.id.cardReservationItem) ?: (view as? MaterialCardView)
+        val isPast = ListDisplayLogic.isPastReservation(item)
+        cardItem?.setCardBackgroundColor(ContextCompat.getColor(this, if (isPast) R.color.surface_past else R.color.surface))
+        cardItem?.strokeColor = ContextCompat.getColor(this, if (isPast) R.color.border_past else R.color.border_color)
+
         val textScheduledAt = view.findViewById<TextView>(R.id.textScheduledAt); val textReservationId = view.findViewById<TextView>(R.id.textReservationId)
         val textStatusBadge = view.findViewById<TextView>(R.id.textStatusBadge); val cardStatusBadge = view.findViewById<MaterialCardView>(R.id.cardStatusBadge)
         val textFailureReason = view.findViewById<TextView>(R.id.textFailureReason); val textOffPeriodNotice = view.findViewById<TextView>(R.id.textOffPeriodNotice)

@@ -1041,7 +1041,7 @@
     {
       "id": "LB-064",
       "reqs": ["REQ-016", "REQ-025"],
-      "status": "in_progress",
+      "status": "done",
       "priority": "핵심",
       "category": "앱기반",
       "title": "안드로이드 홈·쉬는 기간 화면에 스마트싱스 인증 만료 및 연동 오류 경고 표시",
@@ -1050,9 +1050,9 @@
       "parent": null,
       "deps": ["LB-029", "LB-047", "LB-063"],
       "doc": "SPEC.md#decisions",
-      "done_at": null,
+      "done_at": "2026-11-19",
       "must": "미니PC 자체 연결 실패 경고(LB-029, LB-056)와 스마트싱스 인증/연동 실패 경고를 구분해 표시한다.",
-      "memo": "[2026-11-19] 회귀 또는 추가 요구: 기존 LB-029\n[2026-11-19] 코드/정적 검증 완료(ruff/mypy 89 files/compileall 통과, Python 계약·통합 테스트 79건 OK, 리뷰어 코드 결함 없음). 현재 Ubuntu 호스트에 JDK·Gradle·Android SDK 미설치로 Gradle 빌드·Kotlin JUnit 테스트(HomeWarningLogicTest, ServerResponseParserTest)·실기기 UI 검증 미실행 상태이므로 in_progress 유지."
+      "memo": "[2026-11-19] 회귀 또는 추가 요구: 기존 LB-029\n[2026-11-19] 코드/정적 검증 완료(ruff/mypy 89 files/compileall 통과, Python 계약·통합 테스트 79건 OK, 리뷰어 코드 결함 없음). 현재 Ubuntu 호스트에 JDK·Gradle·Android SDK 미설치로 Gradle 빌드·Kotlin JUnit 테스트(HomeWarningLogicTest, ServerResponseParserTest)·실기기 UI 검증 미실행 상태이므로 in_progress 유지.\n[2026-11-19] 검증: GitHub Actions Build Android APK(#44522784107, #44523296800) 빌드 및 서명 검증 통과(v1.1.0), 실기기(폴드8)에서 8081 모의 서버 및 Tailscale OFF로 ① 스마트싱스 인증 오류 주황색 경고 카드 ② 쉬는 기간 등록 warning 카드·다이얼로그 ③ 미니PC/Tailscale 연결 실패 빨간색 경고 카드 구분 표시 모두 실화면 확인 완료."
     },
     {
       "id": "LB-065",
@@ -1085,6 +1085,22 @@
       "done_at": "2026-11-19",
       "must": "is_expired(buffer_seconds=60) 기본값과 PAT 동작, 명시적 buffer_seconds 인자는 그대로 유지한다. OAuth CLI 동기화가 실패해 기존 만료 토큰을 그대로 되돌려받은 경우 갱신 완료로 처리하지 않는다.",
       "memo": "[2026-11-19] 검증: ruff/mypy(91 files)/compileall 통과, 7개 관련 테스트 모듈 56건 OK(test_lb066_oauth_preemptive 포함), code_reviewer PASS"
+    },
+    {
+      "id": "LB-067",
+      "reqs": ["REQ-002", "REQ-012"],
+      "status": "done",
+      "priority": "나중",
+      "category": "앱기반",
+      "title": "예약·쉬는 기간 목록 시작 시각 내림차순 정렬 및 지난 항목 회색 배경 표시",
+      "done_when": "앱의 예약 목록(예정·지난 섹션 각각)과 쉬는 기간 목록이 시작 시각(scheduled_at·start_at) 내림차순으로 정렬되어 표시되고, 지난 예약 및 종료된 쉬는 기간 카드의 배경이 회색으로 구분되어 표시된다",
+      "where": "android/app/src/main/java/com/smartthings/cleaner/ReservationListActivity.kt, android/app/src/main/java/com/smartthings/cleaner/OffPeriodListActivity.kt, android/app/src/main/res/layout/item_reservation.xml, android/app/src/main/res/layout/item_off_period.xml, android/app/src/main/res/values/colors.xml",
+      "parent": null,
+      "deps": ["LB-014", "LB-021"],
+      "doc": null,
+      "done_at": "2026-11-19",
+      "must": "정렬은 KST 파싱 시각(ZonedDateTime) 내림차순을 기준으로 하며, 기존 서버 API 정렬·응답 계약과 예약 5가지 상태 뱃지·수정/취소 버튼 노출 규칙·쉬는 기간 삭제 기능을 깨뜨리지 않는다.",
+      "memo": "[2026-11-19] 구현 완료 및 정적/계약 검증: ListDisplayLogic(시작 시각 내림차순 정렬·지난 항목 판정), ReservationListActivity·OffPeriodListActivity(정렬 및 지난/종료 카드 surface_past #E5E7EB·border_past #D1D5DB 적용), ListDisplayLogicTest·test_android_lb067_list_sorting_and_past_style.py 추가. test_android_*.py 70건 OK, ruff/mypy(92 files)/compileall 통과, 모든 변경 파일 288줄 이하. 미검증(in_progress 유지): Ubuntu 호스트에 JDK·Gradle·Android SDK 미설치로 Gradle 빌드·Kotlin JUnit 테스트(ListDisplayLogicTest)·실기기 UI 화면 검증 미실행.\n[2026-11-19] 검증: JDK 17·Gradle 8.7·Android SDK 34·에뮬레이터 설치 후 gradle testDebugUnitTest(56/56, ListDisplayLogicTest 5/5 포함)·assembleDebug·apksigner 서명 일치 확인. 모의 서버(http://10.0.2.2:18080) 연동 Android API 34 에뮬레이터(1080x2400) 실화면에서 예약 목록(예정·지난 섹션 각 scheduledAt 내림차순, 지난 예약 회색 카드 배경) 및 쉬는 기간 목록(startAt 내림차순, 종료 항목 회색 카드 배경) 스크린샷 확인 완료."
     }
   ]
 }

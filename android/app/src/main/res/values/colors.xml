@@ -58,4 +58,8 @@
     <color name="text_primary">#1F2937</color>
     <color name="text_secondary">#6B7280</color>
     <color name="border_color">#E5E7EB</color>
+
+    <!-- LB-067: 지난 예약 / 종료된 쉬는 기간 카드 배경 -->
+    <color name="surface_past">#E5E7EB</color>
+    <color name="border_past">#D1D5DB</color>
 </resources>

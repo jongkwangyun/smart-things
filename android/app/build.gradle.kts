@@ -13,7 +13,7 @@ android {
         targetSdk = 34
         // CI 실행 번호로 증가시켜 같은 서명 위에서 항상 업데이트 설치가 가능하게 한다.
         versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
-        versionName = "1.0.0" // x-release-please-version
+        versionName = "1.1.0" // x-release-please-version
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

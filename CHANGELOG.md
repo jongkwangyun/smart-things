@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/jongkwangyun/smart-things/compare/v1.1.0...v1.2.0) (2026-11-19)
+
+
+### Features
+
+* **android:** 예약·쉬는 기간 목록 시작 시각 내림차순 정렬 및 지난 항목 회색 배경 표시 (LB-067) ([1daf525](https://github.com/jongkwangyun/smart-things/commit/1daf52583cecf52845f6362563393e51393272a7))
+
 ## [1.1.0](https://github.com/jongkwangyun/smart-things/compare/v1.0.0...v1.1.0) (2026-11-19)
 
 

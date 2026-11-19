@@ -55,14 +55,36 @@ class SmartThingsClient:
         self.simulated_cleaning_type = "mopAfterVacuum"
         self.simulated_dnd: dict[str, str] = {"startTime": "0000", "endTime": "0000", "doNotDisturb": "off"}
 
+    def _request_with_auth_retry(
+        self,
+        url: str,
+        method: str = "GET",
+        payload: dict[str, Any] | None = None,
+        action_label: str = "API 요청",
+    ) -> dict[str, Any]:
+        """인증 토큰으로 요청하고 401 발생 시 토큰 갱신 후 1회 재시도한다."""
+        token = self.token_manager.get_token()
+        try:
+            res = self._request_json(url, token, method=method, payload=payload)
+            self.token_manager.logger.info("%s 성공 (실제 API)", action_label)
+            return res
+        except SmartThingsAuthError:
+            self.token_manager.logger.warning(
+                "401 Unauthorized 발생 (%s). 토큰 갱신 후 1회 재시도합니다.", action_label
+            )
+            self.token_manager.refresh(reason="401_unauthorized")
+            new_token = self.token_manager.get_token()
+            res = self._request_json(url, new_token, method=method, payload=payload)
+            self.token_manager.logger.info("재시도 후 %s 성공", action_label)
+            return res
+
     def get_device_status(self, device_id: str) -> DeviceStatus:
         """기기 상태를 조회한다 (/v1/devices/{device_id}/status).
 
-        401 Unauthorized 발생 시 자동으로 토큰을 갱신하고 1회 재시도한다.
+        401 Unauthorized 발생 시 유효한 새 토큰으로 갱신 가능할 때만 1회 재시도한다.
         """
-        token = self.token_manager.get_token()
-
         if self.simulated:
+            _ = self.token_manager.get_token()
             dnd = getattr(self, "simulated_dnd", {"startTime": "0000", "endTime": "0000", "doNotDisturb": "off"})
             ctype = getattr(self, "simulated_cleaning_type", "mopAfterVacuum")
             raw = make_simulated_status(
@@ -75,16 +97,10 @@ class SmartThingsClient:
             self.token_manager.logger.info("기기 상태 조회 성공 (시뮬레이션 모드): device_id=%s", device_id)
             return self._parse_status(device_id, raw)
 
-        try:
-            raw = self._request_json(f"{self.base_url}/devices/{device_id}/status", token)
-            self.token_manager.logger.info("기기 상태 조회 성공 (실제 API): device_id=%s", device_id)
-        except SmartThingsAuthError:
-            self.token_manager.logger.warning("401 Unauthorized 발생. 토큰 갱신 후 1회 재시도합니다.")
-            self.token_manager.refresh(reason="401_unauthorized")
-            new_token = self.token_manager.get_token()
-            raw = self._request_json(f"{self.base_url}/devices/{device_id}/status", new_token)
-            self.token_manager.logger.info("재시도 후 기기 상태 조회 성공: device_id=%s", device_id)
-
+        raw = self._request_with_auth_retry(
+            f"{self.base_url}/devices/{device_id}/status",
+            action_label=f"기기 상태 조회 (device_id={device_id})",
+        )
         return self._parse_status(device_id, raw)
 
     def get_device_info(self, device_id: str) -> dict[str, Any]:
@@ -94,47 +110,39 @@ class SmartThingsClient:
                 "deviceId": device_id, "name": "VR7MD97716G", "label": "비스포크 AI 콤보 로봇청소기",
                 "deviceManufacturerCode": "Samsung Electronics", "deviceModel": "JETBOT_COMBOT_9X00_24K",
             }
-        token = self.token_manager.get_token()
-        return self._request_json(f"{self.base_url}/devices/{device_id}", token)
+        return self._request_with_auth_retry(
+            f"{self.base_url}/devices/{device_id}",
+            action_label=f"기기 정보 조회 (device_id={device_id})",
+        )
 
     def execute_commands(self, device_id: str, commands: list[dict[str, Any]]) -> dict[str, Any]:
         """기기 명령(/v1/devices/{device_id}/commands)을 전송한다.
 
-        401 Unauthorized 발생 시 자동으로 토큰을 갱신하고 1회 재시도한다.
+        401 Unauthorized 발생 시 유효한 새 토큰으로 갱신 가능할 때만 1회 재시도한다.
         """
         if self.simulated:
             self.token_manager.logger.info("기기 명령 성공 (시뮬): device_id=%s, cmds=%s", device_id, commands)
             return {"results": [{"id": "simulated-cmd-id", "status": "COMPLETED"}]}
 
-        url = f"{self.base_url}/devices/{device_id}/commands"
-        payload = {"commands": commands}
-        token = self.token_manager.get_token()
-
-        try:
-            res = self._request_json(url, token, method="POST", payload=payload)
-            self.token_manager.logger.info("기기 명령 전송 성공 (실제 API): device_id=%s", device_id)
-            return res
-        except SmartThingsAuthError:
-            self.token_manager.logger.warning("401 Unauthorized 발생. 토큰 갱신 후 명령 1회 재시도합니다.")
-            self.token_manager.refresh(reason="401_unauthorized")
-            new_token = self.token_manager.get_token()
-            res = self._request_json(url, new_token, method="POST", payload=payload)
-            self.token_manager.logger.info("재시도 후 기기 명령 전송 성공: device_id=%s", device_id)
-            return res
+        return self._request_with_auth_retry(
+            f"{self.base_url}/devices/{device_id}/commands",
+            method="POST",
+            payload={"commands": commands},
+            action_label=f"기기 명령 전송 (device_id={device_id})",
+        )
 
     def get_device_health(self, device_id: str) -> str:
         """기기 헬스 상태(/v1/devices/{device_id}/health)를 조회한다 ("ONLINE", "OFFLINE", "UNKNOWN")."""
         if self.simulated:
             return getattr(self, "simulated_health", "ONLINE")
 
-        url = f"{self.base_url}/devices/{device_id}/health"
-        token = self.token_manager.get_token()
         try:
-            raw = self._request_json(url, token)
+            raw = self._request_with_auth_retry(
+                f"{self.base_url}/devices/{device_id}/health",
+                action_label=f"기기 헬스 조회 (device_id={device_id})",
+            )
         except SmartThingsAuthError:
-            self.token_manager.logger.warning("401 발생. 토큰 갱신 후 헬스 조회 1회 재시도.")
-            self.token_manager.refresh(reason="401_unauthorized")
-            raw = self._request_json(url, self.token_manager.get_token())
+            raise
         except SmartThingsApiError:
             return "UNKNOWN"
 

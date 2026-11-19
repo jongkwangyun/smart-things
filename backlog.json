@@ -1,7 +1,7 @@
 {
   "$schema_version": "1",
   "meta": {
-    "updated": "2026-11-12",
+    "updated": "2026-11-19",
     "context_doc": "SPEC.md",
     "note": "로봇청소기 VR7MD97716G 스마트싱스 확장 작업 SSOT — 상세 기준은 각 작업의 done_when과 must에 있다"
   },
@@ -108,7 +108,7 @@
       "doc": "SPEC.md#non-functional-requirements",
       "done_at": "2026-10-30",
       "must": "인증 만료로 기능이 멈추지 않아야 한다. 인증 정보는 저장소에 커밋하지 않는다.",
-      "memo": "[2026-10-30] 차단: 실제 스마트싱스 인증 토큰(PAT/OAuth) 및 로봇청소기 기기 ID(VR7MD97716G)가 미제공되어 실제 기기 상태 조회 및 토큰 자동 갱신 검증 불가 (AGENTS.md 실제 호출 근거 원칙). 해결 조건: 스마트싱스 토큰 및 기기 ID 설정 필요.\n[2026-10-30] 검증 완료: SmartThingsTokenManager 및 SmartThingsClient(server/smartthings/) 구현. VR7MD97716G(JETBOT_COMBOT_9X00_24K, ID: 03431570-5acf-f89e-7b39-275ce15d3258) 실기기 상태 조회(idle, 배터리 100%, 온라인 True) 및 force_expire 후 토큰 만료 감지·자동 갱신·재조회 성공 확인. server/logs/smartthings.log 로그 기록 및 토큰 마스킹 검증. 단위 테스트 8종 포함 전체 144개 테스트 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인."
+      "memo": "[2026-10-30] 차단: 실제 스마트싱스 인증 토큰(PAT/OAuth) 및 로봇청소기 기기 ID(VR7MD97716G)가 미제공되어 실제 기기 상태 조회 및 토큰 자동 갱신 검증 불가 (AGENTS.md 실제 호출 근거 원칙). 해결 조건: 스마트싱스 토큰 및 기기 ID 설정 필요.\n[2026-10-30] 검증 완료: SmartThingsTokenManager 및 SmartThingsClient(server/smartthings/) 구현. VR7MD97716G(JETBOT_COMBOT_9X00_24K, ID: 03431570-5acf-f89e-7b39-275ce15d3258) 실기기 상태 조회(idle, 배터리 100%, 온라인 True) 및 force_expire 후 토큰 만료 감지·자동 갱신·재조회 성공 확인. server/logs/smartthings.log 로그 기록 및 토큰 마스킹 검증. 단위 테스트 8종 포함 전체 144개 테스트 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인.\n[2026-11-19] 회귀 또는 추가 요구: LB-061 PAT 401 상태에서 동일 무효 토큰 가짜 갱신·폴링 폭주 방지, LB-063 스마트싱스 인증 상태 노출 및 경고 알림"
     },
     {
       "id": "LB-006",
@@ -492,7 +492,7 @@
       "doc": "SPEC.md#decisions",
       "done_at": "2026-10-30",
       "must": "앱 실행 시 확인만 한다. 백그라운드 감시는 하지 않는다 (D-13).",
-      "memo": "[2026-10-30] 검증 완료: 앱 실행 시 서버 오프라인 상태 감지 및 '서버에 연결할 수 없음' 경고 카드 표출(MainActivity.kt, strings.xml, activity_main.xml), D-13 백그라운드 감시 미포함 검증. 단위/시뮬레이션 테스트 8건(전체 80건) 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인."
+      "memo": "[2026-10-30] 검증 완료: 앱 실행 시 서버 오프라인 상태 감지 및 '서버에 연결할 수 없음' 경고 카드 표출(MainActivity.kt, strings.xml, activity_main.xml), D-13 백그라운드 감시 미포함 검증. 단위/시뮬레이션 테스트 8건(전체 80건) 통과. ruff/mypy/compileall 통과. code_reviewer PASS 확인.\n[2026-11-19] 회귀 또는 추가 요구: LB-064 서버 연결 성공 상태에서도 스마트싱스 인증/연동 오류 경고 표시"
     },
     {
       "id": "LB-030",
@@ -748,7 +748,7 @@
       "doc": "SPEC.md#decisions",
       "done_at": "2026-11-05",
       "must": "기기 API(custom.doNotDisturbMode)를 사용하며, 진입 전 DND 설정을 백업하고 종료 시 복원한다. 기존 AutoStopWatcher 2차 정지 방어선은 유지한다.",
-      "memo": "[2026-11-05] 검증 완료: DndSyncManager 구현 및 ReservationScheduler, OffPeriodService 연동. custom.doNotDisturbMode 기기 API를 통해 쉬는 기간 진입 시 기존 DND 백업 후 0000~2359 on 설정, 종료/삭제 시 복원 및 백업 삭제 확인. AutoStopWatcher 2차 정지 방어선 유지. tests/test_dnd_sync.py 포함 264개 전체 테스트 통과. ruff/mypy/compileall 통과. code_reviewer 독립 검증 PASS 확인."
+      "memo": "[2026-11-05] 검증 완료: DndSyncManager 구현 및 ReservationScheduler, OffPeriodService 연동. custom.doNotDisturbMode 기기 API를 통해 쉬는 기간 진입 시 기존 DND 백업 후 0000~2359 on 설정, 종료/삭제 시 복원 및 백업 삭제 확인. AutoStopWatcher 2차 정지 방어선 유지. tests/test_dnd_sync.py 포함 264개 전체 테스트 통과. ruff/mypy/compileall 통과. code_reviewer 독립 검증 PASS 확인.\n[2026-11-19] 회귀 또는 추가 요구: LB-063 스마트싱스 인증 만료 시 DND 동기화 실패 경고 노출"
     },
     {
       "id": "LB-046",
@@ -764,7 +764,7 @@
       "doc": "SPEC.md#non-functional-requirements",
       "done_at": "2026-11-05",
       "must": "갱신 시 회전 발급되는 single-use refresh token을 로컬 영구 파일에 안전하게 보관하며, git에 커밋되지 않도록 격리한다.",
-      "memo": "[2026-11-05] 검증 완료: token_storage.py 및 SmartThingsTokenManager 롤링 저장소 연동. Single-use refresh token 회전 발급 시 원자적 파일 교체(0600 권한)로 st_token.json에 영구 저장 및 서버 재기동 시 우선 복원 확인. .gitignore(server/data/) 보안 격리 확인. tools/setup_smartthings_oauth.py 초기 등록 헬퍼 제공. tests/test_smartthings_oauth_rolling.py 포함 271개 전체 테스트 통과. ruff/mypy/compileall 통과. code_reviewer 독립 검증 PASS 확인."
+      "memo": "[2026-11-05] 검증 완료: token_storage.py 및 SmartThingsTokenManager 롤링 저장소 연동. Single-use refresh token 회전 발급 시 원자적 파일 교체(0600 권한)로 st_token.json에 영구 저장 및 서버 재기동 시 우선 복원 확인. .gitignore(server/data/) 보안 격리 확인. tools/setup_smartthings_oauth.py 초기 등록 헬퍼 제공. tests/test_smartthings_oauth_rolling.py 포함 271개 전체 테스트 통과. ruff/mypy/compileall 통과. code_reviewer 독립 검증 PASS 확인.\n[2026-11-19] 회귀 또는 추가 요구: LB-061 무효 PAT 가짜 갱신 중단 및 백오프, LB-062 Ubuntu(Linux) 환경 SmartThings CLI 토큰 동기화 지원 및 인증 복구"
     },
     {
       "id": "LB-047",
@@ -989,6 +989,102 @@
       "done_at": "2026-11-12",
       "must": "기존 취소 동작(LB-053: 취소 시 아무 요청도 보내지 않음)을 유지하고, 현재 누적 청소 횟수가 1회 이상일 때 보정될 기준값(max(1, K-1)회)을 대화상자 안내 문구에 표시한다.",
       "memo": "[2026-11-12] RefillConfirmDialog에 일반 채움(0 초기화) 및 물 부족으로 채움(N=max(1, K-1) 자동 보정 후 0 초기화) 선택 기능, 취소 불변조건 유지, HomeActivity 및 WaterManagementActivity 결과 화면 갱신 연동 완료. Gradle 39개 단위 테스트 및 Python 39개 테스트 통과. code_reviewer 독립 검증 PASS 확인."
+    },
+    {
+      "id": "LB-061",
+      "reqs": [],
+      "status": "done",
+      "priority": "핵심",
+      "category": "서버기반",
+      "title": "스마트싱스 401 무효 PAT 가짜 갱신 중단·인증 실패 백오프·스케줄러 상태 조회 통합 및 로그 로테이션",
+      "done_when": ".env의 PAT가 401을 반환하고 토큰 값이 바뀌지 않았을 때 가짜 갱신 완료 대신 TokenRefreshError가 발생하며, 연속 401 상태에서 스케줄러의 SmartThings API 호출이 백오프되어 매초 재시도 폭주가 멈추고(.env 또는 st_token.json 갱신 시 즉시 복구), 1회 step() 당 get_device_status()를 1번만 조회해 공유하며 로그 파일에 RotatingFileHandler가 적용된다",
+      "where": "server/smartthings/auth.py, server/smartthings/client.py, server/scheduler/scheduler.py, server/scheduler/logger.py",
+      "parent": null,
+      "deps": ["LB-005", "LB-046", "LB-059"],
+      "doc": "SPEC.md#non-functional-requirements",
+      "done_at": "2026-11-19",
+      "must": "401 상태에서 동일 PAT로 만료 시각만 연장하지 않는다. 연속 인증 실패 시 API 호출을 백오프하되 토큰 파일이나 .env가 갱신되면 즉시 재시도해야 한다. DndSyncManager·AutoStopWatcher·WaterSessionTracker가 한 스케줄러 step에서 기기 상태를 중복 조회하지 않게 한다.",
+      "memo": "[2026-11-19] 회귀 또는 추가 요구: 기존 LB-005, LB-046\n[2026-11-19] 검증: ruff/mypy(server tests, 78 files)/compileall 통과, 15개 관련 테스트 모듈 101건 OK(test_scheduler_lb061, test_smartthings_auth 등), 3차 code_reviewer PASS"
+    },
+    {
+      "id": "LB-062",
+      "reqs": [],
+      "status": "done",
+      "priority": "핵심",
+      "category": "서버기반",
+      "title": "Ubuntu(Linux) 환경 SmartThings OAuth 토큰 CLI 동기화 지원 및 실기기 인증 복구",
+      "done_when": "Linux(Ubuntu) 환경에서도 SmartThings CLI 자격 증명 경로(XDG_CONFIG_HOME 또는 ~/.config/@smartthings/cli/credentials.json 및 smartthings 실행 파일) 또는 OAuth 설정 도구로 server/data/st_token.json을 동기화·갱신할 수 있고, 운영 미니PC 서버에서 VR7MD97716G 상태 조회가 401 없이 실제 응답을 반환한다",
+      "where": "server/smartthings/token_storage.py, tools/login_with_cli.py, tools/setup_smartthings_oauth.py",
+      "parent": null,
+      "deps": ["LB-046", "LB-061"],
+      "doc": "SPEC.md#non-functional-requirements",
+      "done_at": "2026-11-19",
+      "must": "Windows와 Linux 경로를 모두 지원하고 토큰이나 인증 파일은 저장소에 커밋하지 않는다. 실제 기기(VR7MD97716G) 상태 조회 성공을 확인한다.",
+      "memo": "[2026-11-19] 회귀 또는 추가 요구: 기존 LB-046\n[2026-11-19] 코드 구현 및 검증 완료(ruff/mypy linux+win32/compileall/39 tests OK). 실기기(VR7MD97716G) 401 없는 상태 조회는 .env PAT 만료(401) 및 smartthings CLI/credentials.json/st_token.json 미존재로 사용자 삼성 계정 브라우저 로그인 또는 신규 토큰 제공이 필요해 차단됨.\n[2026-11-19] 검증: @smartthings/cli 로그인 후 server/data/st_token.json(0600, gitignored) 저장 및 운영 서버(smart-things-server.service) 재시작 없이 1초 내 백오프 즉시 해제 확인. 실기기 VR7MD97716G 실제 API 상태 조회(idle, battery=99, online=True) 및 GET /health smartthings_ok=true 확인. ruff/mypy(89 files + win32)/compileall/unit tests 및 code_reviewer PASS."
+    },
+    {
+      "id": "LB-063",
+      "reqs": ["REQ-016", "REQ-022", "REQ-025"],
+      "status": "done",
+      "priority": "핵심",
+      "category": "서버기반",
+      "title": "스마트싱스 인증 상태 /health 노출, 쉬는 기간 DND 동기화 실패 경고 및 연속 인증 실패 푸시 알림",
+      "done_when": "GET /health 응답에 스마트싱스 연동 상태(smartthings_ok, smartthings_auth_state, last_success_at, last_error)가 포함되고, POST /api/off-periods 호출 시 DND 동기화 또는 스마트싱스 인증이 실패 상태이면 응답에 warning 필드가 반환되며, 연속 인증 실패 감지 시 쿨다운을 두고 등록된 기기로 경고 푸시 알림이 발송된다",
+      "where": "server/server.py, server/scheduler/scheduler.py, server/off_periods/service.py, server/off_periods/dnd_sync.py",
+      "parent": null,
+      "deps": ["LB-011", "LB-045", "LB-061"],
+      "doc": "SPEC.md#non-functional-requirements",
+      "done_at": "2026-11-19",
+      "must": "기존 /health 의 status·service·time_kst·database 필드는 하위 호환을 위해 그대로 유지하고 스마트싱스 상태 필드를 추가한다. 인증 실패 푸시 알림은 중복 폭주하지 않도록 쿨다운을 적용한다.",
+      "memo": "[2026-11-19] 회귀 또는 추가 요구: 기존 LB-005, LB-045\n[2026-11-19] 검증: ruff/mypy(88 files)/compileall 통과, 17개 관련 테스트 모듈 103건 OK(test_lb063_smartthings_health, test_lb063_concurrency, test_server, test_off_periods 등), 2차 code_reviewer PASS"
+    },
+    {
+      "id": "LB-064",
+      "reqs": ["REQ-016", "REQ-025"],
+      "status": "in_progress",
+      "priority": "핵심",
+      "category": "앱기반",
+      "title": "안드로이드 홈·쉬는 기간 화면에 스마트싱스 인증 만료 및 연동 오류 경고 표시",
+      "done_when": "미니PC 서버에는 연결되었으나 /health 응답의 smartthings_ok가 false(401 인증 만료 등)일 때 홈 화면 경고 카드에 스마트싱스 연동 오류 안내가 표시되고, 쉬는 기간 등록 응답에 warning이 포함되면 사용자에게 안내 메시지가 표시된다",
+      "where": "android/app/src/main/java/com/smartthings/cleaner/network/ServerClient.kt, android/app/src/main/java/com/smartthings/cleaner/HomeActivity.kt, android/app/src/main/java/com/smartthings/cleaner/CreateOffPeriodActivity.kt",
+      "parent": null,
+      "deps": ["LB-029", "LB-047", "LB-063"],
+      "doc": "SPEC.md#decisions",
+      "done_at": null,
+      "must": "미니PC 자체 연결 실패 경고(LB-029, LB-056)와 스마트싱스 인증/연동 실패 경고를 구분해 표시한다.",
+      "memo": "[2026-11-19] 회귀 또는 추가 요구: 기존 LB-029\n[2026-11-19] 코드/정적 검증 완료(ruff/mypy 89 files/compileall 통과, Python 계약·통합 테스트 79건 OK, 리뷰어 코드 결함 없음). 현재 Ubuntu 호스트에 JDK·Gradle·Android SDK 미설치로 Gradle 빌드·Kotlin JUnit 테스트(HomeWarningLogicTest, ServerResponseParserTest)·실기기 UI 검증 미실행 상태이므로 in_progress 유지."
+    },
+    {
+      "id": "LB-065",
+      "reqs": ["REQ-025", "REQ-026"],
+      "status": "done",
+      "priority": "핵심",
+      "category": "서버기반",
+      "title": "스케줄러 스레드 생존 여부 /health 노출 및 비정상 중단 시 503 워치독 재시작 연동",
+      "done_when": "GET /health 응답에 scheduler_running 필드가 포함되고, run_server(start_scheduler=True)로 기동된 서버에서 스케줄러 스레드가 예기치 않게 중단되면 /health가 HTTP 503(status=degraded)을 반환해 systemd 워치독이 자동 재시작할 수 있다",
+      "where": "server/server.py, server/smartthings/health.py, server/scheduler/scheduler.py",
+      "parent": null,
+      "deps": ["LB-063"],
+      "doc": "SPEC.md#non-functional-requirements",
+      "done_at": "2026-11-19",
+      "must": "create_server() 단위 테스트나 --no-scheduler 모드처럼 스케줄러가 기대되지 않는 경우에는 기존처럼 /health가 HTTP 200을 반환해야 하며, 정상 종료(close/stop)가 아닌 예기치 않은 스레드 중단만 503으로 판정한다",
+      "memo": "[2026-11-19] 검증: ruff/mypy(90 files)/compileall 통과, 12개 관련 테스트 모듈 65건 OK(test_lb065_scheduler_health 포함), code_reviewer PASS"
+    },
+    {
+      "id": "LB-066",
+      "reqs": [],
+      "status": "done",
+      "priority": "핵심",
+      "category": "서버기반",
+      "title": "OAuth 토큰 만료 30분 전 선제 자동 갱신 및 CLI 미갱신 만료 토큰 방어",
+      "done_when": "OAuth 토큰의 경우 get_token() 기본 버퍼가 1800초(만료 30분 전)로 동작해 @smartthings/cli의 1시간 이내 갱신 윈도우에서 선제적으로 자동 갱신되며, CLI 동기화 후에도 토큰이 바뀌지 않고 여전히 만료 상태이면 가짜 갱신 완료 대신 TokenRefreshError를 발생시킨다",
+      "where": "server/smartthings/auth.py, server/smartthings/token_storage.py",
+      "parent": null,
+      "deps": ["LB-046", "LB-061", "LB-062"],
+      "doc": "SPEC.md#non-functional-requirements",
+      "done_at": "2026-11-19",
+      "must": "is_expired(buffer_seconds=60) 기본값과 PAT 동작, 명시적 buffer_seconds 인자는 그대로 유지한다. OAuth CLI 동기화가 실패해 기존 만료 토큰을 그대로 되돌려받은 경우 갱신 완료로 처리하지 않는다.",
+      "memo": "[2026-11-19] 검증: ruff/mypy(91 files)/compileall 통과, 7개 관련 테스트 모듈 56건 OK(test_lb066_oauth_preemptive 포함), code_reviewer PASS"
     }
   ]
 }

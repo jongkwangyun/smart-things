@@ -2,7 +2,7 @@
 """스마트싱스 OAuth 2.0 초기 인증 코드(authorization_code) 교환 및 토큰 저장 도구.
 
 사용법:
-    py tools/setup_smartthings_oauth.py --client-id <ID> --client-secret <SECRET> --code <CODE> --redirect-uri <URI>
+    python3 tools/setup_smartthings_oauth.py --client-id <ID> --client-secret <SECRET> --code <CODE>
 """
 
 from __future__ import annotations
@@ -25,6 +25,7 @@ from server.smartthings.token_storage import (  # noqa: E402
     DEFAULT_TOKEN_FILE,
     TokenInfo,
     mask_token,
+    resolve_credential,
     save_token_to_file,
 )
 from server.time_utils import format_kst, now_kst  # noqa: E402
@@ -77,7 +78,15 @@ def exchange_oauth_code(
     )
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8")
+            except Exception:
+                pass
+
+    default_token_file = PROJECT_ROOT / DEFAULT_TOKEN_FILE
     parser = argparse.ArgumentParser(description="스마트싱스 OAuth 2.0 첫 토큰 발급 및 영구 저장 헬퍼")
     parser.add_argument("--client-id", dest="client_id", help="스마트싱스 OAuth Client ID")
     parser.add_argument("--client-secret", dest="client_secret", help="스마트싱스 OAuth Client Secret")
@@ -91,8 +100,8 @@ def main() -> int:
     parser.add_argument(
         "--token-file",
         dest="token_file",
-        default=str(DEFAULT_TOKEN_FILE),
-        help=f"토큰을 저장할 파일 경로 (기본값: {DEFAULT_TOKEN_FILE})",
+        default=str(default_token_file),
+        help=f"토큰을 저장할 파일 경로 (기본값: {default_token_file})",
     )
     parser.add_argument(
         "--token-url",
@@ -101,10 +110,15 @@ def main() -> int:
         help="스마트싱스 OAuth 토큰 엔드포인트",
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
-    client_id = args.client_id
-    client_secret = args.client_secret
+    env_path = PROJECT_ROOT / ".env"
+    client_id = args.client_id or resolve_credential("SMARTTHINGS_CLIENT_ID") or resolve_credential(
+        "SMARTTHINGS_CLIENT_ID", env_path=env_path
+    )
+    client_secret = args.client_secret or resolve_credential("SMARTTHINGS_CLIENT_SECRET") or resolve_credential(
+        "SMARTTHINGS_CLIENT_SECRET", env_path=env_path
+    )
     code = args.code
     redirect_uri = args.redirect_uri
 

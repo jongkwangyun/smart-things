@@ -13,7 +13,11 @@ sealed class ConnectionState {
         val serverUrl: String,
         val serviceName: String,
         val serverTimeKst: String,
-        val reservationCount: Int
+        val reservationCount: Int,
+        val smartthingsOk: Boolean = true,
+        val smartthingsAuthState: String = "unknown",
+        val smartthingsLastSuccessAt: String? = null,
+        val smartthingsLastError: String? = null
     ) : ConnectionState()
 
     data class Failed(

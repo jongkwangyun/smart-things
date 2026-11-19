@@ -11,6 +11,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.card.MaterialCardView
 import com.smartthings.cleaner.model.ConnectionError
 import com.smartthings.cleaner.model.ConnectionState
 import com.smartthings.cleaner.model.FetchReservationsResult
@@ -39,7 +40,7 @@ class HomeActivity : AppCompatActivity() {
     private var currentMopCleanCount: Int = 0
 
     private lateinit var textConnectionLine: TextView
-    private lateinit var cardServerWarning: View
+    private lateinit var cardServerWarning: MaterialCardView
     private lateinit var textServerWarningTitle: TextView
     private lateinit var textServerWarningMessage: TextView
     private lateinit var textNextReservation: TextView
@@ -123,26 +124,55 @@ class HomeActivity : AppCompatActivity() {
 
     private fun renderConnection(state: ConnectionState) {
         lastConnectionState = state
-        // LB-029/REQ-025, LB-056: 서버에 닿지 않을 때만 경고 카드를 보인다. Tailscale 미연결 시 맞춤 제목·안내를 제공한다.
-        val failed = state as? ConnectionState.Failed
-        val unreachable = failed?.error == ConnectionError.UNREACHABLE
-        cardServerWarning.visibility = if (unreachable) View.VISIBLE else View.GONE
-        if (unreachable) {
-            val isTailscale = TailscaleDiagnoser.isTailscaleMessage(failed?.message)
-            textServerWarningTitle.text = if (isTailscale) {
-                getString(R.string.tailscale_warning_title)
-            } else {
-                getString(R.string.server_unreachable_warning)
-            }
-            textServerWarningMessage.text = failed?.message
+        val warning = HomeWarningLogic.resolve(state)
+        // LB-029/REQ-025, LB-056, LB-064: 미니PC 연결 불가(ConnectionError.UNREACHABLE)와 스마트싱스 인증·연동 오류를 구분해 표시한다.
+        val unreachable = (state as? ConnectionState.Failed)?.error == ConnectionError.UNREACHABLE
+        cardServerWarning.visibility = if (unreachable || warning.isSmartThingsError) View.VISIBLE else View.GONE
+        if (warning.isVisible) {
+            applyWarningCard(warning)
         }
         if (state is ConnectionState.Connected) {
-            textConnectionLine.text = getString(R.string.home_conn_connected, state.serverUrl)
-            textConnectionLine.setTextColor(ContextCompat.getColor(this, R.color.status_connected))
+            val lineRes = if (state.smartthingsOk) R.string.home_conn_connected else R.string.home_conn_connected_st_warning
+            val lineColor = if (state.smartthingsOk) R.color.status_connected else R.color.status_missed
+            textConnectionLine.text = getString(lineRes, state.serverUrl)
+            textConnectionLine.setTextColor(ContextCompat.getColor(this, lineColor))
         } else {
             val msg = (state as? ConnectionState.Failed)?.message ?: getString(R.string.error_unknown)
             textConnectionLine.text = getString(R.string.home_conn_failed, msg)
             textConnectionLine.setTextColor(ContextCompat.getColor(this, R.color.status_error))
+        }
+    }
+
+    private fun applyWarningCard(warning: HomeWarningLogic.WarningState) {
+        val isServerFail = warning.isServerConnectionFailure
+        val bgColor = ContextCompat.getColor(this, if (isServerFail) R.color.status_error_bg else R.color.status_missed_bg)
+        val accentColor = ContextCompat.getColor(this, if (isServerFail) R.color.status_error else R.color.status_missed)
+        cardServerWarning.setCardBackgroundColor(bgColor)
+        cardServerWarning.strokeColor = accentColor
+        textServerWarningTitle.setTextColor(accentColor)
+
+        when (warning.kind) {
+            HomeWarningLogic.Kind.TAILSCALE_DISCONNECTED -> {
+                textServerWarningTitle.text = getString(R.string.tailscale_warning_title)
+                textServerWarningMessage.text = warning.detail
+            }
+            HomeWarningLogic.Kind.SERVER_UNREACHABLE -> {
+                textServerWarningTitle.text = getString(R.string.server_unreachable_warning)
+                textServerWarningMessage.text = warning.detail
+            }
+            HomeWarningLogic.Kind.SMARTTHINGS_AUTH_FAILED -> {
+                textServerWarningTitle.text = getString(R.string.smartthings_auth_warning_title)
+                textServerWarningMessage.text = HomeWarningLogic.formatSmartThingsMessage(
+                    getString(R.string.smartthings_auth_warning_msg), warning.detail, warning.lastSuccessAt
+                )
+            }
+            HomeWarningLogic.Kind.SMARTTHINGS_API_ERROR -> {
+                textServerWarningTitle.text = getString(R.string.smartthings_api_warning_title)
+                textServerWarningMessage.text = HomeWarningLogic.formatSmartThingsMessage(
+                    getString(R.string.smartthings_api_warning_msg), warning.detail, warning.lastSuccessAt
+                )
+            }
+            HomeWarningLogic.Kind.NONE -> Unit
         }
     }
 

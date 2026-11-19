@@ -3,74 +3,73 @@
 
 from __future__ import annotations
 
-import ctypes
-import json
+import argparse
+import os
 import subprocess
 import sys
 import time
-from ctypes import wintypes
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from server.smartthings.token_storage import DEFAULT_TOKEN_FILE, TokenInfo, mask_token, save_token_to_file  # noqa: E402
+from server.smartthings.token_storage import (  # noqa: E402
+    DEFAULT_TOKEN_FILE,
+    find_cli_credentials_file,
+    find_smartthings_cli_executable,
+    mask_token,
+    parse_cli_credentials,
+    save_token_to_file,
+)
+from server.time_utils import format_kst  # noqa: E402
 
-advapi32 = ctypes.windll.advapi32
 
+def _find_windows_credential_manager_entry() -> tuple[str, str] | None:
+    """Windows 자격 증명 관리자(CredEnumerateW)에서 SmartThings CLI 자격 증명을 검색한다."""
+    if sys.platform != "win32":
+        return None
 
-class CREDENTIAL(ctypes.Structure):
-    _fields_ = [
-        ("Flags", wintypes.DWORD),
-        ("Type", wintypes.DWORD),
-        ("TargetName", wintypes.LPWSTR),
-        ("Comment", wintypes.LPWSTR),
-        ("LastWritten", wintypes.FILETIME),
-        ("CredentialBlobSize", wintypes.DWORD),
-        ("CredentialBlob", ctypes.POINTER(ctypes.c_char)),
-        ("Persist", wintypes.DWORD),
-        ("AttributeCount", wintypes.DWORD),
-        ("Attributes", ctypes.c_void_p),
-        ("TargetAlias", wintypes.LPWSTR),
-        ("UserName", wintypes.LPWSTR),
+    import ctypes
+    from ctypes import wintypes
+
+    advapi32 = ctypes.windll.advapi32
+
+    class CREDENTIAL(ctypes.Structure):
+        _fields_ = [
+            ("Flags", wintypes.DWORD),
+            ("Type", wintypes.DWORD),
+            ("TargetName", wintypes.LPWSTR),
+            ("Comment", wintypes.LPWSTR),
+            ("LastWritten", wintypes.FILETIME),
+            ("CredentialBlobSize", wintypes.DWORD),
+            ("CredentialBlob", ctypes.POINTER(ctypes.c_char)),
+            ("Persist", wintypes.DWORD),
+            ("AttributeCount", wintypes.DWORD),
+            ("Attributes", ctypes.c_void_p),
+            ("TargetAlias", wintypes.LPWSTR),
+            ("UserName", wintypes.LPWSTR),
+        ]
+
+    cred_enumerate = advapi32.CredEnumerateW
+    cred_enumerate.argtypes = [
+        wintypes.LPWSTR,
+        wintypes.DWORD,
+        ctypes.POINTER(wintypes.DWORD),
+        ctypes.POINTER(ctypes.POINTER(ctypes.POINTER(CREDENTIAL))),
     ]
+    cred_enumerate.restype = wintypes.BOOL
 
+    cred_read = advapi32.CredReadW
+    cred_read.argtypes = [wintypes.LPWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.POINTER(ctypes.POINTER(CREDENTIAL))]
+    cred_read.restype = wintypes.BOOL
 
-CredEnumerateW = advapi32.CredEnumerateW
-CredEnumerateW.argtypes = [
-    wintypes.LPWSTR,
-    wintypes.DWORD,
-    ctypes.POINTER(wintypes.DWORD),
-    ctypes.POINTER(ctypes.POINTER(ctypes.POINTER(CREDENTIAL))),
-]
-CredEnumerateW.restype = wintypes.BOOL
-
-CredReadW = advapi32.CredReadW
-CredReadW.argtypes = [wintypes.LPWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.POINTER(ctypes.POINTER(CREDENTIAL))]
-CredReadW.restype = wintypes.BOOL
-
-CredFree = advapi32.CredFree
-CredFree.argtypes = [ctypes.c_void_p]
-
-
-def find_smartthings_credential() -> tuple[str, str] | None:
-    """Windows SmartThings CLI 자격 증명(credentials.json 또는 자격 증명 관리자)에서 토큰을 검색한다."""
-    import os
-
-    local_appdata = os.environ.get("LOCALAPPDATA")
-    if local_appdata:
-        json_path = Path(local_appdata) / "@smartthings/cli/Data/credentials.json"
-        if json_path.is_file():
-            try:
-                content = json_path.read_text(encoding="utf-8")
-                return str(json_path), content
-            except Exception:
-                pass
+    cred_free = advapi32.CredFree
+    cred_free.argtypes = [ctypes.c_void_p]
 
     count = wintypes.DWORD()
     pcreds = ctypes.POINTER(ctypes.POINTER(CREDENTIAL))()
-    if not CredEnumerateW(None, 0, ctypes.byref(count), ctypes.byref(pcreds)):
+    if not cred_enumerate(None, 0, ctypes.byref(count), ctypes.byref(pcreds)):
         return None
 
     try:
@@ -79,9 +78,9 @@ def find_smartthings_credential() -> tuple[str, str] | None:
             target_lower = target.lower()
             if "smartthings" in target_lower or "@smartthings" in target_lower:
                 pcred = ctypes.POINTER(CREDENTIAL)()
-                if CredReadW(target, 1, 0, ctypes.byref(pcred)):
+                if cred_read(target, 1, 0, ctypes.byref(pcred)):
                     blob = ctypes.string_at(pcred.contents.CredentialBlob, pcred.contents.CredentialBlobSize)
-                    CredFree(pcred)
+                    cred_free(pcred)
                     try:
                         text = blob.decode("utf-16-le")
                     except Exception:
@@ -89,89 +88,115 @@ def find_smartthings_credential() -> tuple[str, str] | None:
                     return target, text
         return None
     finally:
-        CredFree(pcreds)
+        cred_free(pcreds)
 
 
-def main() -> int:
+def find_smartthings_credential() -> tuple[str, str] | None:
+    """Windows/Linux SmartThings CLI 자격 증명(credentials.json 또는 Windows 자격 증명 관리자)에서 토큰을 검색한다."""
+    cred_file = find_cli_credentials_file()
+    if cred_file is not None:
+        try:
+            content = cred_file.read_text(encoding="utf-8")
+            return str(cred_file), content
+        except Exception:
+            pass
+
+    return _find_windows_credential_manager_entry()
+
+
+def main(argv: list[str] | None = None) -> int:
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             try:
                 stream.reconfigure(encoding="utf-8")
             except Exception:
                 pass
-    cli_exe = PROJECT_ROOT / "smartthings.exe"
-    if not cli_exe.is_file():
-        sys.stderr.write("오류: smartthings.exe 파일이 존재하지 않습니다.\n")
-        return 1
 
-    print("=" * 70)
-    print("삼성 공식 SmartThings CLI 브라우저 1회 간편 인증 도구")
-    print("=" * 70)
-    print("잠시 후 웹 브라우저가 열립니다. 삼성 계정 로그인 후 '허용(Allow)'을 클릭해 주세요.\n")
+    parser = argparse.ArgumentParser(description="SmartThings CLI OAuth 자격 증명 동기화 및 로그인 도구")
+    parser.add_argument(
+        "--token-file",
+        default=str(PROJECT_ROOT / DEFAULT_TOKEN_FILE),
+        help=f"토큰을 저장할 파일 경로 (기본값: {PROJECT_ROOT / DEFAULT_TOKEN_FILE})",
+    )
+    parser.add_argument(
+        "--sync-only",
+        action="store_true",
+        help="브라우저 로그인을 실행하지 않고 기존 SmartThings CLI 자격 증명 파일만 동기화",
+    )
+    args = parser.parse_args(argv)
 
-    # 기존 SMARTTHINGS_TOKEN 환경 변수가 있으면 CLI가 브라우저 로그인을 건너뛰므로 제거한 상태로 실행
-    env = dict(sys.modules["os"].environ)
-    env.pop("SMARTTHINGS_TOKEN", None)
-    env.pop("SMARTTHINGS_PAT", None)
+    if not args.sync_only:
+        cli_exe = find_smartthings_cli_executable()
+        if cli_exe is None:
+            expected_name = "smartthings.exe" if sys.platform == "win32" else "smartthings"
+            sys.stderr.write(
+                f"오류: SmartThings CLI 실행 파일({expected_name})을 찾을 수 없습니다.\n"
+                f"프로젝트 루트({PROJECT_ROOT}) 또는 PATH에 {expected_name} 를 배치한 뒤 다시 실행하거나,\n"
+                "이미 credentials.json이 있다면 --sync-only 옵션을, "
+                "직접 OAuth 코드를 교환하려면 tools/setup_smartthings_oauth.py 를 사용하세요.\n"
+            )
+            return 1
 
-    proc = subprocess.Popen([str(cli_exe), "devices", "-j"], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    print("[1/2] 브라우저 로그인 대기 중...")
+        print("=" * 70)
+        print("삼성 공식 SmartThings CLI 브라우저 1회 간편 인증 도구")
+        print("=" * 70)
+        print(f"CLI 실행 파일: {cli_exe}")
+        print("잠시 후 웹 브라우저가 열립니다. 삼성 계정 로그인 후 '허용(Allow)'을 클릭해 주세요.\n")
 
-    # 프로세스 완료 대기
-    stdout, stderr = proc.communicate()
+        # 기존 SMARTTHINGS_TOKEN 환경 변수가 있으면 CLI가 브라우저 로그인을 건너뛰므로 제거한 상태로 실행
+        env = dict(os.environ)
+        env.pop("SMARTTHINGS_TOKEN", None)
+        env.pop("SMARTTHINGS_PAT", None)
+        env.pop("SMARTTHINGS_ACCESS_TOKEN", None)
 
-    if proc.returncode != 0:
-        err_msg = stderr.decode("utf-8", "replace").strip()
-        print(f"[오류] SmartThings CLI 인증 실패: {err_msg}")
-        return 2
+        try:
+            proc = subprocess.Popen(
+                [str(cli_exe), "devices", "-j"],
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+        except OSError as e:
+            sys.stderr.write(f"[오류] SmartThings CLI 실행 실패 ({cli_exe}): {e}\n")
+            return 2
 
-    print("[2/2] 인증 완료 확인! Windows 자격 증명 저장소에서 토큰을 추출합니다...")
-    time.sleep(1)
+        print("[1/2] 브라우저 로그인 대기 중...")
+        _, stderr = proc.communicate()
+
+        if proc.returncode != 0:
+            err_msg = stderr.decode("utf-8", "replace").strip()
+            print(f"[오류] SmartThings CLI 인증 실패: {err_msg}")
+            return 2
+
+        print("[2/2] 인증 완료 확인! SmartThings CLI 자격 증명 저장소에서 토큰을 추출합니다...")
 
     cred = find_smartthings_credential()
+    if not cred and not args.sync_only:
+        time.sleep(1)
+        cred = find_smartthings_credential()
     if not cred:
-        print("[경고] 자격 증명 관리자에서 토큰을 찾지 못했습니다. CLI 응답에서 추출 시도 중...")
+        print("[경고] SmartThings CLI 자격 증명 저장소에서 토큰을 찾지 못했습니다.")
         return 3
 
     target, raw_json = cred
     print(f"  * 발견된 자격 증명 대상: {target}")
 
-    try:
-        data = json.loads(raw_json)
-    except Exception as e:
-        print(f"[오류] 토큰 데이터 JSON 파싱 실패: {e}")
+    token_info = parse_cli_credentials(raw_json)
+    if token_info is None:
+        print("[오류] SmartThings CLI 자격 증명에서 유효한 access_token을 파싱하지 못했습니다.")
         return 4
 
-    # keytar 또는 credentials.json 데이터 구조에서 access_token, refresh_token 추출
-    token_obj = data.get("token") or data.get("default:api.smartthings.com") or data
-    if isinstance(token_obj, dict) and not (token_obj.get("access_token") or token_obj.get("accessToken")):
-        # 첫 번째 딕셔너리 값 탐색
-        for v in data.values():
-            if isinstance(v, dict) and (v.get("access_token") or v.get("accessToken")):
-                token_obj = v
-                break
-    access_token = token_obj.get("access_token") or token_obj.get("accessToken")
-    refresh_token = token_obj.get("refresh_token") or token_obj.get("refreshToken")
-
-    if not access_token:
-        print(f"[오류] access_token을 찾을 수 없습니다: {data}")
-        return 5
-
-    token_info = TokenInfo(
-        access_token=access_token,
-        token_type="oauth",
-        refresh_token=refresh_token,
-        client_id=data.get("clientId") or "smartthings-cli",
-    )
-
-    save_token_to_file(token_info, DEFAULT_TOKEN_FILE)
+    target_file = Path(args.token_file)
+    save_token_to_file(token_info, target_file)
     print("\n" + "=" * 70)
     print("[성공] 스마트싱스 OAuth 연동 및 영구 저장 완료!")
-    print(f"  * 저장 위치: {DEFAULT_TOKEN_FILE.resolve()}")
+    print(f"  * 저장 위치: {target_file.resolve()}")
     print(f"  * 액세스 토큰: {mask_token(token_info.access_token)}")
     print(f"  * 리프레시 토큰: {mask_token(token_info.refresh_token)}")
+    if token_info.expires_at:
+        print(f"  * 만료 예정 일시(KST): {format_kst(token_info.expires_at)}")
     print("=" * 70)
-    print("이제 미니PC 서버가 백그라운드에서 매일 스스로 토큰을 갱신합니다.")
+    print("이제 미니PC 서버가 백그라운드에서 토큰을 자동 관리/갱신합니다.")
     return 0
 
 

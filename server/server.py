@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import ssl
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -15,8 +16,9 @@ from server.notify import FCMClient, NotificationService, NotificationValidation
 from server.off_periods import OffPeriodConflictError, OffPeriodService, OffPeriodValidationError
 from server.reservations import ReservationConflictError, ReservationService, ReservationValidationError
 from server.scheduler import ReservationScheduler
+from server.scheduler.backoff import AuthBackoffTracker
+from server.smartthings.health import build_health_response, get_server_smartthings_health, record_server_dnd_outcome
 from server.storage import Storage
-from server.time_utils import format_kst, now_kst
 from server.water import WaterService
 
 
@@ -53,10 +55,8 @@ class MiniPCHandler(BaseHTTPRequestHandler):
             extract_secret_from_headers(self.headers), self.server.config.shared_secret
         ):
             return True
-        self._send_error_json(
-            HTTPStatus.UNAUTHORIZED, "Unauthorized: missing or invalid shared secret",
-            headers={"WWW-Authenticate": 'Bearer realm="smart-things"'},
-        )
+        msg = "Unauthorized: missing or invalid shared secret"
+        self._send_error_json(HTTPStatus.UNAUTHORIZED, msg, headers={"WWW-Authenticate": 'Bearer realm="smart-things"'})
         return False
 
     def _read_json(self) -> dict[str, Any] | None:
@@ -75,14 +75,19 @@ class MiniPCHandler(BaseHTTPRequestHandler):
     def _clean_path(self) -> str:
         return urlparse(self.path).path.rstrip("/") or "/"
 
+    def _off_period_service(self) -> OffPeriodService:
+        dnd_m = getattr(self.server.scheduler, "dnd_sync_manager", None) or self.server.dnd_sync_manager
+        return OffPeriodService(
+            self.server.storage, dnd_sync_manager=dnd_m,
+            smartthings_health_getter=lambda: get_server_smartthings_health(self.server),
+            on_dnd_sync=lambda dm, now, exc, out=None: record_server_dnd_outcome(self.server, dm, now, exc, out),
+        )
+
     def do_GET(self) -> None:
         path = self._clean_path()
         if is_health_check_path(path):
-            return self._send_json(
-                HTTPStatus.OK,
-                {"status": "ok", "service": "smart-things-mini-pc",
-                 "time_kst": format_kst(now_kst()), "database": "connected"},
-            )
+            status_code, payload = build_health_response(self.server)
+            return self._send_json(status_code, payload)
         if not self._authenticate(path):
             return
         storage = self.server.storage
@@ -97,15 +102,13 @@ class MiniPCHandler(BaseHTTPRequestHandler):
             op_id = path.removeprefix("/api/off-periods/")
             return self._send_item(storage.get_off_period(op_id), f"OffPeriod {op_id} not found")
         if path == "/api/auto-stop-events":
-            return self._send_json(
-                HTTPStatus.OK, {"auto_stop_events": [e.to_dict() for e in storage.list_auto_stop_events()]}
-            )
+            evts = [e.to_dict() for e in storage.list_auto_stop_events()]
+            return self._send_json(HTTPStatus.OK, {"auto_stop_events": evts})
         if path == "/api/water-tracker":
             return self._send_json(HTTPStatus.OK, storage.get_water_tracker().to_dict())
         if path == "/api/notification-targets":
-            return self._send_json(
-                HTTPStatus.OK, {"notification_targets": [nt.to_dict() for nt in storage.list_notification_targets()]}
-            )
+            nts = [n.to_dict() for n in storage.list_notification_targets()]
+            return self._send_json(HTTPStatus.OK, {"notification_targets": nts})
         self._send_error_json(HTTPStatus.NOT_FOUND, f"Path {path} not found")
 
     def do_POST(self) -> None:
@@ -125,9 +128,8 @@ class MiniPCHandler(BaseHTTPRequestHandler):
                 return self._send_json(HTTPStatus.OK, refill_res.to_dict())
             if path.startswith("/api/reservations/") and path.endswith("/cancel"):
                 res_id = path.removeprefix("/api/reservations/").removesuffix("/cancel")
-                return self._send_item(
-                    ReservationService(storage).cancel_reservation(res_id), f"Reservation {res_id} not found"
-                )
+                svc_res = ReservationService(storage).cancel_reservation(res_id)
+                return self._send_item(svc_res, f"Reservation {res_id} not found")
 
             data = self._read_json()
             if data is None and path not in ("/api/water-tracker", "/api/notify/test"):
@@ -139,9 +141,7 @@ class MiniPCHandler(BaseHTTPRequestHandler):
                 return self._send_json(HTTPStatus.CREATED, res.to_dict())
             if path == "/api/off-periods":
                 assert data is not None
-                dnd_m = getattr(self.server.scheduler, "dnd_sync_manager", None)
-                op = OffPeriodService(storage, dnd_sync_manager=dnd_m).create_off_period(data)
-                return self._send_json(HTTPStatus.CREATED, op.to_dict())
+                return self._send_json(HTTPStatus.CREATED, self._off_period_service().create_off_period_response(data))
             if path == "/api/auto-stop-events":
                 assert data is not None
                 evt = storage.save_auto_stop_event(AutoStopEvent.from_dict(data))
@@ -151,13 +151,13 @@ class MiniPCHandler(BaseHTTPRequestHandler):
                 if "alert_threshold_n" in payload:
                     try:
                         n_val = int(payload["alert_threshold_n"])
-                        if n_val < 1:
-                            return self._send_error_json(
-                                HTTPStatus.BAD_REQUEST, "alert_threshold_n must be an integer >= 1"
-                            )
                     except (ValueError, TypeError):
                         return self._send_error_json(
                             HTTPStatus.BAD_REQUEST, "alert_threshold_n must be a valid integer"
+                        )
+                    if n_val < 1:
+                        return self._send_error_json(
+                            HTTPStatus.BAD_REQUEST, "alert_threshold_n must be an integer >= 1"
                         )
                     if "mop_clean_count" not in payload:
                         return self._send_json(HTTPStatus.OK, WaterService(storage).set_threshold(n_val).to_dict())
@@ -166,14 +166,14 @@ class MiniPCHandler(BaseHTTPRequestHandler):
             if path == "/api/notification-targets":
                 assert data is not None
                 nt = self.server.notification_service.register_device(
-                    str(data.get("device_id", "")).strip(),
-                    str(data.get("push_token", "")).strip(),
+                    str(data.get("device_id", "")).strip(), str(data.get("push_token", "")).strip(),
                     target_id=str(data.get("id", "")).strip() or None,
                 )
                 return self._send_json(HTTPStatus.CREATED, nt.to_dict())
             if path == "/api/notify/test":
                 payload = data or {}
-                nt_res = self.server.notification_service.send_test_notification(
+                svc_nt = self.server.notification_service
+                nt_res = svc_nt.send_test_notification(
                     str(payload.get("title") or "청소기 시험 알림"), str(payload.get("body") or "시험 푸시 알림입니다.")
                 )
                 return self._send_json(HTTPStatus.OK, nt_res.to_dict())
@@ -189,16 +189,13 @@ class MiniPCHandler(BaseHTTPRequestHandler):
         path = self._clean_path()
         if not self._authenticate(path):
             return
-        data = self._read_json()
-        if data is None:
+        if (data := self._read_json()) is None:
             return self._send_error_json(HTTPStatus.BAD_REQUEST, "Invalid JSON payload")
         try:
             if path.startswith("/api/reservations/"):
-                res_id = path.removeprefix("/api/reservations/")
-                return self._send_item(
-                    ReservationService(self.server.storage).update_reservation(res_id, data),
-                    f"Reservation {res_id} not found",
-                )
+                rid = path.removeprefix("/api/reservations/")
+                item = ReservationService(self.server.storage).update_reservation(rid, data)
+                return self._send_item(item, f"Reservation {rid} not found")
             self._send_error_json(HTTPStatus.NOT_FOUND, f"Path {path} not found")
         except (ReservationValidationError, KeyError, ValueError) as err:
             self._send_error_json(HTTPStatus.BAD_REQUEST, str(err))
@@ -214,8 +211,7 @@ class MiniPCHandler(BaseHTTPRequestHandler):
             return self._send_delete(ok, {"deleted": True, "id": rid}, f"Reservation {rid} not found")
         if path.startswith("/api/off-periods/"):
             oid = path.removeprefix("/api/off-periods/")
-            dnd_m = getattr(self.server.scheduler, "dnd_sync_manager", None)
-            ok = OffPeriodService(storage, dnd_sync_manager=dnd_m).delete_off_period(oid)
+            ok = self._off_period_service().delete_off_period(oid)
             return self._send_delete(ok, {"deleted": True, "id": oid}, f"OffPeriod {oid} not found")
         if path.startswith("/api/notification-targets/"):
             dev_id = path.removeprefix("/api/notification-targets/")
@@ -228,20 +224,23 @@ class MiniPCServer(ThreadingHTTPServer):
     """스마트싱스 미니PC 서버."""
 
     def __init__(
-        self,
-        config: Config,
-        storage: Storage | None = None,
-        notification_service: NotificationService | None = None,
-        scheduler: ReservationScheduler | None = None,
+        self, config: Config, storage: Storage | None = None,
+        notification_service: NotificationService | None = None, scheduler: ReservationScheduler | None = None,
     ) -> None:
         self.config = config
         self.storage = storage or Storage(config.db_path)
-        self.notification_service = notification_service or NotificationService(
-            self.storage, FCMClient.from_config(config)
+        self.notification_service = (
+            notification_service or NotificationService(self.storage, FCMClient.from_config(config))
         )
         self.scheduler: ReservationScheduler | None = scheduler
+        self.scheduler_expected: bool = False
+        self.is_closing: bool = False
         if self.scheduler is not None and getattr(self.scheduler, "notification_service", None) is None:
             self.scheduler.notification_service = self.notification_service
+        self.dnd_sync_manager: Any = None
+        self._fallback_backoff = AuthBackoffTracker(
+            logging.getLogger("server.http"), notification_service_getter=lambda: self.notification_service
+        )
         self.ssl_context: ssl.SSLContext | None = None
         if bool(config.ssl_cert_path) != bool(config.ssl_key_path):
             raise ValueError("Both ssl_cert_path and ssl_key_path must be provided for TLS mode")
@@ -261,6 +260,8 @@ class MiniPCServer(ThreadingHTTPServer):
         return self.ssl_context is not None
 
     def close(self) -> None:
+        self.is_closing = True
+        self.scheduler_expected = False
         if self.scheduler is not None and self.scheduler.is_running:
             self.scheduler.stop()
         self.server_close()
@@ -286,6 +287,7 @@ def run_server(config: Config | None = None, start_scheduler: bool = True) -> No
         if srv.scheduler is None:
             srv.scheduler = ReservationScheduler(storage=srv.storage, notification_service=srv.notification_service)
         srv.scheduler.start()
+        srv.scheduler_expected = True
     scheme = "https" if srv.is_tls else "http"
     print(f"미니PC 서버 시작: {scheme}://{srv.config.host}:{srv.server_address[1]} (DB: {srv.config.db_path})")
     try:

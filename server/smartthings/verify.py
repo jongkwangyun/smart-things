@@ -33,15 +33,20 @@ def verify_smartthings_connection(
     print("=" * 70)
 
     # 1. 토큰 매니저 및 자격 증명 준비
-    try:
-        token_mgr = SmartThingsTokenManager.from_env(log_file=log_path)
-        masked = mask_token(token_mgr.token_info.access_token)
-        print(f"[초기화] 인증 토큰 확인 완료: {masked} (타입: {token_mgr.token_info.token_type})")
-    except ValueError:
-        print("[안내] 유효한 SMARTTHINGS_TOKEN을 찾지 못하여 테스트용 토큰으로 초기화합니다.")
+    if simulated:
+        print("[안내] 시뮬레이션 모드로 테스트용 토큰을 초기화합니다.")
         dummy_info = TokenInfo(access_token="simulated-test-token-vr7md97716g", token_type="pat")
         token_mgr = SmartThingsTokenManager(token_info=dummy_info, log_file=log_path)
-        simulated = True
+    else:
+        try:
+            token_mgr = SmartThingsTokenManager.from_env(log_file=log_path)
+            masked = mask_token(token_mgr.token_info.access_token)
+            print(f"[초기화] 인증 토큰 확인 완료: {masked} (타입: {token_mgr.token_info.token_type})")
+        except ValueError:
+            print("[안내] 유효한 SMARTTHINGS_TOKEN을 찾지 못하여 테스트용 토큰으로 초기화합니다.")
+            dummy_info = TokenInfo(access_token="simulated-test-token-vr7md97716g", token_type="pat")
+            token_mgr = SmartThingsTokenManager(token_info=dummy_info, log_file=log_path)
+            simulated = True
 
     # 2. 클라이언트 준비 (네트워크 가용 여부 판별)
     client = SmartThingsClient(token_manager=token_mgr, simulated=simulated)

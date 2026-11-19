@@ -47,20 +47,11 @@ class CreateOffPeriodActivity : AppCompatActivity() {
             data class InvalidRange(val message: String) : ValidationState()
         }
 
-        fun checkDateTimeValidity(
-            startZdt: ZonedDateTime,
-            endZdt: ZonedDateTime
-        ): ValidationState {
-            return if (!endZdt.isAfter(startZdt)) {
-                ValidationState.InvalidRange("종료 일시는 시작 일시보다 뒤여야 합니다.")
-            } else {
-                ValidationState.Valid
-            }
-        }
+        fun checkDateTimeValidity(startZdt: ZonedDateTime, endZdt: ZonedDateTime): ValidationState =
+            if (!endZdt.isAfter(startZdt)) ValidationState.InvalidRange("종료 일시는 시작 일시보다 뒤여야 합니다.")
+            else ValidationState.Valid
 
-        fun formatIsoKst(dateTime: ZonedDateTime): String {
-            return dateTime.format(ISO_FORMATTER)
-        }
+        fun formatIsoKst(dateTime: ZonedDateTime): String = dateTime.format(ISO_FORMATTER)
     }
 
     private val serverClient = ServerClient()
@@ -76,13 +67,10 @@ class CreateOffPeriodActivity : AppCompatActivity() {
     private lateinit var textDurationSummary: TextView
     private var editingStart = true
 
-    private lateinit var btnPickStartDate: MaterialButton
+    private lateinit var legacyPickButtons: List<MaterialButton>
     private lateinit var textSelectedStartDate: TextView
-    private lateinit var btnPickStartTime: MaterialButton
     private lateinit var textSelectedStartTime: TextView
-    private lateinit var btnPickEndDate: MaterialButton
     private lateinit var textSelectedEndDate: TextView
-    private lateinit var btnPickEndTime: MaterialButton
     private lateinit var textSelectedEndTime: TextView
     private lateinit var textSelectedRangePreview: TextView
     private lateinit var textStartIsoPreview: TextView
@@ -106,14 +94,12 @@ class CreateOffPeriodActivity : AppCompatActivity() {
     }
 
     private fun initViews() {
-        btnPickStartDate = findViewById(R.id.btnPickStartDate)
+        legacyPickButtons = listOf(
+            R.id.btnPickStartDate, R.id.btnPickStartTime, R.id.btnPickEndDate, R.id.btnPickEndTime
+        ).map { findViewById(it) }
         textSelectedStartDate = findViewById(R.id.textSelectedStartDate)
-        btnPickStartTime = findViewById(R.id.btnPickStartTime)
         textSelectedStartTime = findViewById(R.id.textSelectedStartTime)
-
-        btnPickEndDate = findViewById(R.id.btnPickEndDate)
         textSelectedEndDate = findViewById(R.id.textSelectedEndDate)
-        btnPickEndTime = findViewById(R.id.btnPickEndTime)
         textSelectedEndTime = findViewById(R.id.textSelectedEndTime)
 
         textSelectedRangePreview = findViewById(R.id.textSelectedRangePreview)
@@ -243,13 +229,22 @@ class CreateOffPeriodActivity : AppCompatActivity() {
                 setSaving(false)
                 when (result) {
                     is CreateOffPeriodResult.Success -> {
-                        // 저장하면 확인 메시지가 뜨고 (done_when)
-                        cardValidationWarning.visibility = View.GONE
+                        // 저장하면 확인 메시지가 뜨고, warning 포함 시 주의 안내도 함께 표시한다 (LB-020, LB-064)
                         cardConfirmation.visibility = View.VISIBLE
                         textConfirmationMessage.text = getString(R.string.msg_confirm_off_period_created)
                         textConfirmationDetail.text = "쉬는 기간 ID: ${result.id}\n기간: ${result.startAt} ~ ${result.endAt}"
 
-                        showConfirmationDialog(getString(R.string.msg_confirm_off_period_created))
+                        val warning = result.warning?.trim().orEmpty()
+                        cardValidationWarning.visibility = if (warning.isNotEmpty()) View.VISIBLE else View.GONE
+                        if (warning.isNotEmpty()) {
+                            textValidationMessage.text = warning
+                        }
+                        val (titleRes, msg) = if (warning.isNotEmpty()) {
+                            R.string.title_off_period_created_warning to getString(R.string.msg_confirm_off_period_created_with_warning, warning)
+                        } else {
+                            R.string.title_confirm to getString(R.string.msg_confirm_off_period_created)
+                        }
+                        showConfirmationDialog(getString(titleRes), msg)
                     }
                     is CreateOffPeriodResult.Failure -> {
                         cardValidationWarning.visibility = View.VISIBLE
@@ -265,10 +260,7 @@ class CreateOffPeriodActivity : AppCompatActivity() {
         refreshSaveEnabled(isSaving)
         btnSaveOffPeriod.text = if (isSaving) getString(R.string.btn_saving_off_period) else getString(R.string.btn_save_off_period)
         progressBarSave.visibility = if (isSaving) View.VISIBLE else View.GONE
-        btnPickStartDate.isEnabled = !isSaving
-        btnPickStartTime.isEnabled = !isSaving
-        btnPickEndDate.isEnabled = !isSaving
-        btnPickEndTime.isEnabled = !isSaving
+        legacyPickButtons.forEach { it.isEnabled = !isSaving }
         cardStartTab.isEnabled = !isSaving
         cardEndTab.isEnabled = !isSaving
         picker.isEnabled = !isSaving
@@ -281,9 +273,9 @@ class CreateOffPeriodActivity : AppCompatActivity() {
         btnSaveOffPeriod.alpha = if (ok || isSaving) 1f else 0.4f
     }
 
-    private fun showConfirmationDialog(message: String) {
+    private fun showConfirmationDialog(title: String, message: String) {
         AlertDialog.Builder(this)
-            .setTitle(getString(R.string.title_confirm))
+            .setTitle(title)
             .setMessage(message)
             .setPositiveButton(getString(R.string.btn_ok)) { dialog, _ ->
                 dialog.dismiss()

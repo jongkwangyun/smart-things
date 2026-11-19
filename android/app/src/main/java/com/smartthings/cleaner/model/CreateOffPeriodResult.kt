@@ -10,7 +10,8 @@ sealed class CreateOffPeriodResult {
         val id: String,
         val startAt: String,
         val endAt: String,
-        val message: String = "쉬는 기간이 등록되었습니다"
+        val message: String = "쉬는 기간이 등록되었습니다",
+        val warning: String? = null
     ) : CreateOffPeriodResult()
 
     data class Failure(

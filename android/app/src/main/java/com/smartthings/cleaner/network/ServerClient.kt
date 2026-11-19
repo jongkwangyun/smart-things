@@ -75,9 +75,12 @@ class ServerClient(
         if (!cleanUrl.startsWith("http://") && !cleanUrl.startsWith("https://")) return ConnectionState.Failed(ConnectionError.INVALID_URL, "URL은 http:// 또는 https://로 시작해야 합니다.")
         val healthResult = checkHealth(cleanUrl)
         if (healthResult is HealthCheckResult.Failure) return tailscaleDiagnoser.diagnose(cleanUrl, ConnectionState.Failed(ConnectionError.UNREACHABLE, healthResult.message), context)
-        val health = healthResult as HealthCheckResult.Success
+        val health = (healthResult as HealthCheckResult.Success).info
         return when (val authResult = checkAuth(cleanUrl, cleanSecret)) {
-            is AuthCheckResult.Success -> ConnectionState.Connected(cleanUrl, health.serviceName, health.serverTimeKst, authResult.reservationCount)
+            is AuthCheckResult.Success -> ConnectionState.Connected(
+                cleanUrl, health.serviceName, health.serverTimeKst, authResult.reservationCount,
+                health.smartthingsOk, health.smartthingsAuthState, health.lastSuccessAt, health.lastError
+            )
             is AuthCheckResult.Unauthorized -> ConnectionState.Failed(ConnectionError.UNAUTHORIZED, ERR_AUTH)
             is AuthCheckResult.Failure -> tailscaleDiagnoser.diagnose(cleanUrl, ConnectionState.Failed(ConnectionError.UNREACHABLE, authResult.message), context)
         }
@@ -85,7 +88,7 @@ class ServerClient(
 
     private fun checkHealth(baseUrl: String): HealthCheckResult = try {
         val (code, body) = getJson("$baseUrl/health", "")
-        if (code == HttpURLConnection.HTTP_OK) JSONObject(body).let { HealthCheckResult.Success(it.optString("service", "smart-things-mini-pc"), it.optString("time_kst", "-")) }
+        if (code == HttpURLConnection.HTTP_OK) HealthCheckResult.Success(ServerResponseParser.parseHealth(body))
         else HealthCheckResult.Failure("서버 응답 오류 (HTTP $code)")
     } catch (e: Exception) {
         HealthCheckResult.Failure(if (e is MalformedURLException) "잘못된 서버 주소 형식입니다." else "서버에 연결할 수 없습니다: ${e.message}")
@@ -161,7 +164,7 @@ class ServerClient(
         return try {
             val (code, body) = postJson("$cleanUrl/api/off-periods", cleanSecret, JSONObject().apply { put("start_at", cleanStart); put("end_at", cleanEnd) })
             when (code) {
-                HttpURLConnection.HTTP_CREATED, HttpURLConnection.HTTP_OK -> JSONObject(body).let { CreateOffPeriodResult.Success(it.optString("id", ""), it.optString("start_at", cleanStart), it.optString("end_at", cleanEnd)) }
+                HttpURLConnection.HTTP_CREATED, HttpURLConnection.HTTP_OK -> ServerResponseParser.parseCreateOffPeriodSuccess(body, cleanStart, cleanEnd)
                 HttpURLConnection.HTTP_BAD_REQUEST -> CreateOffPeriodResult.Failure(400, extractErrorMsg(body, "종료 일시는 시작 일시보다 뒤여야 합니다."))
                 HttpURLConnection.HTTP_UNAUTHORIZED -> CreateOffPeriodResult.Failure(401, ERR_AUTH)
                 else -> CreateOffPeriodResult.Failure(code, "서버 응답 오류 (HTTP $code)")
@@ -287,6 +290,6 @@ class ServerClient(
     private fun readStream(inputStream: InputStream): String =
         BufferedReader(InputStreamReader(inputStream, Charsets.UTF_8)).use { it.readText() }
 
-    private sealed interface HealthCheckResult { data class Success(val serviceName: String, val serverTimeKst: String) : HealthCheckResult; data class Failure(val message: String) : HealthCheckResult }
+    private sealed interface HealthCheckResult { data class Success(val info: ServerResponseParser.HealthInfo) : HealthCheckResult; data class Failure(val message: String) : HealthCheckResult }
     private sealed interface AuthCheckResult { data class Success(val reservationCount: Int) : AuthCheckResult; data object Unauthorized : AuthCheckResult; data class Failure(val message: String) : AuthCheckResult }
 }

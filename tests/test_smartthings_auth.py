@@ -142,9 +142,18 @@ class TestSmartThingsAuth(unittest.TestCase):
         self.assertIn("VR7MD97716G", status.summary())
 
     def test_client_retry_on_401_unauthorized(self) -> None:
-        """HTTP 401 Unauthorized 발생 시 토큰 갱신 및 1회 재시도 동작 검증."""
+        """HTTP 401 Unauthorized 발생 시 유효한 토큰 갱신 및 1회 재시도 동작 검증."""
         token_info = TokenInfo(access_token="expired-token", token_type="pat")
-        manager = SmartThingsTokenManager(token_info=token_info, log_file=self.log_path)
+        manager = SmartThingsTokenManager(
+            token_info=token_info,
+            log_file=self.log_path,
+            env_path=self.env_path,
+            refresh_handler=lambda info: TokenInfo(
+                access_token="refreshed-token",
+                token_type=info.token_type,
+                expires_at=now_kst() + timedelta(hours=1),
+            ),
+        )
         client = SmartThingsClient(token_manager=manager, simulated=False)
         valid_payload = json.dumps({"components": {"main": {
             "robotCleanerOperatingState": {"operatingState": {"value": "cleaning"}},
@@ -164,6 +173,45 @@ class TestSmartThingsAuth(unittest.TestCase):
         with patch("urllib.request.urlopen", side_effect=[http_401, http_401]):
             with self.assertRaises(SmartThingsAuthError):
                 client.get_device_status(self.device_id)
+
+    def test_pat_401_unchanged_raises_token_refresh_error_without_fake_extension(self) -> None:
+        """401 상태에서 .env PAT 값이 바뀌지 않으면 가짜 만료 연장 대신 TokenRefreshError가 발생한다 (LB-061)."""
+        self.env_path.write_text("SMARTTHINGS_TOKEN=invalid-pat-same\n", encoding="utf-8")
+        token_file = Path(self.temp_dir.name) / "missing_st_token.json"
+        manager = SmartThingsTokenManager.from_env(
+            env_path=self.env_path, log_file=self.log_path, token_file=token_file,
+        )
+        client = SmartThingsClient(token_manager=manager, simulated=False)
+        http_401 = urllib.error.HTTPError(
+            url="http://example.com", code=401, msg="Unauthorized", hdrs={},  # type: ignore[arg-type]
+            fp=io.BytesIO(b'{"error": "invalid_token"}'),
+        )
+        with patch("urllib.request.urlopen", side_effect=[http_401]) as mock_open:
+            with self.assertRaises(TokenRefreshError):
+                client.get_device_status(self.device_id)
+            self.assertEqual(mock_open.call_count, 1)
+
+        self.assertIsNone(manager.token_info.expires_at)
+        for h in manager.logger.handlers:
+            h.flush()
+        log_text = self.log_path.read_text(encoding="utf-8")
+        self.assertIn("토큰 갱신 실패", log_text)
+        self.assertNotIn("토큰 갱신 완료", log_text)
+
+        # .env 가 새 PAT로 갱신되면 401 후 즉시 새 PAT로 재시도 성공
+        self.env_path.write_text("SMARTTHINGS_TOKEN=fresh-pat-updated\n", encoding="utf-8")
+        valid_payload = json.dumps({"components": {"main": {
+            "robotCleanerOperatingState": {"operatingState": {"value": "idle"}},
+            "battery": {"battery": {"value": 99}},
+        }}}).encode("utf-8")
+        resp_ok = MagicMock()
+        resp_ok.read.return_value = valid_payload
+        resp_ok.__enter__.return_value = resp_ok
+        with patch("urllib.request.urlopen", side_effect=[http_401, resp_ok]) as mock_open2:
+            status = client.get_device_status(self.device_id)
+            self.assertEqual(status.battery, 99)
+            self.assertEqual(mock_open2.call_count, 2)
+            self.assertEqual(manager.token_info.access_token, "fresh-pat-updated")
 
     def test_client_network_error_raises_smartthings_api_error(self) -> None:
         """네트워크 연결 실패 시 SmartThingsApiError 발생 검증."""
@@ -216,9 +264,18 @@ class TestSmartThingsAuth(unittest.TestCase):
             self.assertEqual(data2["commands"][0]["capability"], "samsungce.robotCleanerOperatingState")
 
     def test_client_execute_commands_401_retry(self) -> None:
-        """명령 전송 시 401 Unauthorized 발생 시 토큰 갱신 및 1회 재시도 검증."""
+        """명령 전송 시 401 Unauthorized 발생 시 유효한 토큰 갱신 및 1회 재시도 검증."""
         token_info = TokenInfo(access_token="expired-token", token_type="pat")
-        manager = SmartThingsTokenManager(token_info=token_info, log_file=self.log_path)
+        manager = SmartThingsTokenManager(
+            token_info=token_info,
+            log_file=self.log_path,
+            env_path=self.env_path,
+            refresh_handler=lambda info: TokenInfo(
+                access_token="refreshed-cmd-token",
+                token_type=info.token_type,
+                expires_at=now_kst() + timedelta(hours=1),
+            ),
+        )
         client = SmartThingsClient(token_manager=manager, simulated=False)
         resp_ok = MagicMock()
         resp_payload = json.dumps({"results": [{"id": "cmd-retry", "status": "COMPLETED"}]}).encode("utf-8")
@@ -281,6 +338,22 @@ class TestSmartThingsAuth(unittest.TestCase):
             parse_failure_reason(status, "ONLINE", fallback_unknown=True),
             "원인 미확인 (마지막 상태: idle)",
         )
+
+    def test_stale_os_env_does_not_override_updated_dotenv_on_subsequent_401(self) -> None:
+        """os.environ에 구 토큰이 남아 있어도 .env로 갱신된 새 토큰의 후속 401에서 구 토큰으로 회귀하지 않는다."""
+        self.env_path.write_text("SMARTTHINGS_TOKEN=env-pat-1\n", encoding="utf-8")
+        with patch.dict("os.environ", {"SMARTTHINGS_TOKEN": "stale-os-env-pat"}):
+            mgr = SmartThingsTokenManager.from_env(
+                env_path=self.env_path, log_file=self.log_path, token_file=None,
+            )
+            self.env_path.write_text("SMARTTHINGS_TOKEN=env-pat-2\n", encoding="utf-8")
+            self.assertTrue(mgr.reload_if_updated())
+            self.assertEqual(mgr.token_info.access_token, "env-pat-2")
+
+            # .env 추가 변경 없이 401 재발생 시 stale-os-env-pat으로 되돌아가지 않고 TokenRefreshError 발생
+            with self.assertRaises(TokenRefreshError):
+                mgr.refresh(reason="401_unauthorized")
+            self.assertEqual(mgr.token_info.access_token, "env-pat-2")
 
 
 

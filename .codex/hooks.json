@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"/home/yjk/1work/smart-things/.codex/hooks/block_backlog_access.py\"",
+            "timeout": 10,
+            "statusMessage": "Checking backlog.json access"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"/home/yjk/1work/smart-things/.codex/hooks/stop_quality_gate.py\"",
+            "timeout": 300,
+            "statusMessage": "Running lint, build, type check and file size check"
+          }
+        ]
+      }
+    ]
+  }
+}
